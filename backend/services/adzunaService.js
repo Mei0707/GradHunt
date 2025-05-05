@@ -45,13 +45,17 @@ const searchJobs = async (params = {}) => {
     const url = `${BASE_URL}/jobs/${searchParams.country}/search/${searchParams.page}`;
     console.log('Request URL:', url);
     
+    const what = searchParams.what;
+    const enhancedWhat = what.toLowerCase().includes('software')
+      ?  `${what} developer OR engineer OR programmer NOT hair NOT stylist NOT retail`
+      : what;
     // Prepare request parameters
     const requestParams = {
       app_id: APP_ID,
       app_key: APP_KEY,
       results_per_page: searchParams.results_per_page,
-      what: searchParams.role,
-      where: searchParams.location,
+      what: searchParams.what,
+      where: searchParams.where,
       distance: searchParams.distance,
       max_days_old: searchParams.max_days_old,
       sort_by: searchParams.sort_by,
