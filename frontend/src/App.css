@@ -5,10 +5,16 @@
   color: #333;
   width: 100%;
   min-height: 100vh;
+  padding-bottom: 40px;
+}
+
+.container {
+  padding-top: 20px;
+  padding-bottom: 20px;
 }
 
 .header {
-  background-color: #0d6efd;
+  background-color: #004369;
   color: white;
   padding: 2rem 0;
   margin-bottom: 2rem;

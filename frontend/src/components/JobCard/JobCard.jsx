@@ -24,25 +24,45 @@ function JobCard({ job }) {
     }
   }
   
-  // Format date
-  const jobDate = new Date(job.created);
-  const dateText = jobDate.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  });
+  // Format date for display
+  const timePosted = job.time_posted || 'Recently';
+  
+  // Format applicants info if available
+  const applicantsInfo = job.num_applicants || '';
 
   return (
     <div className="col-md-6 col-lg-4">
       <div className="card job-card h-100">
         <div className="card-body">
           <h5 className="card-title">{job.title}</h5>
-          <div className="company mb-2">{job.company}</div>
-          <div className="location mb-2">📍 {job.location}</div>
-          {salaryText && <div className="salary">{salaryText}</div>}
-          <p className="card-text job-description mt-3">{job.description}</p>
-          <div className="d-flex justify-content-between align-items-center mt-3">
-            <small className="text-muted">Posted: {dateText}</small>
+          <div className="company mb-3">{job.company}</div>
+          <div className="location mb-3">📍 {job.location}</div>
+          
+          {/* Source badge */}
+          <div className="source mb-3">
+            <span className="badge bg-primary">{job.source || 'Job Board'}</span>
+          </div>
+          
+          {/* Time posted */}
+          {timePosted && (
+            <div className="time-posted mb-2">
+              <small>Posted: {timePosted}</small>
+            </div>
+          )}
+          
+          {/* Applicant count if available */}
+          {applicantsInfo && (
+            <div className="applicants mb-2">
+              <small>{applicantsInfo}</small>
+            </div>
+          )}
+          
+          {salaryText && <div className="salary mb-3">{salaryText}</div>}
+          
+          <p className="card-text job-description my-4">{job.description}</p>
+          
+          <div className="d-flex justify-content-between align-items-center mt-4">
+            <small className="text-muted">Source: {job.source}</small>
             <a href={job.url} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline-primary">
               Apply
             </a>

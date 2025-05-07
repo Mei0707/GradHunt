@@ -6,11 +6,11 @@ const jobController = require('../controllers/jobController');
 // Log when routes are loaded
 console.log('Loading job routes...');
 
-// Search jobs
+// Make sure these routes use actual functions from your controller
 router.get('/search', jobController.searchJobs);
 
-// Get job by ID
-router.get('/:id', jobController.getJobById);
+// If you have a getJobById route, make sure it's properly defined
+// router.get('/:id', jobController.getJobById);
 
 console.log('Job routes loaded successfully');
 

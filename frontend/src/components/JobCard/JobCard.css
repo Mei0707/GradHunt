@@ -3,8 +3,21 @@
     border: none;
     border-radius: 10px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    margin-bottom: 20px;
+    margin-bottom: 30px;
     transition: transform 0.2s;
+    padding: 5px;
+  }
+  
+  .col-md-6, .col-lg-4 {
+    padding: 15px; /* Increase the column padding */
+  }
+  
+  .job-card:hover {
+    transform: translateY(-5px);
+  }
+  
+  .card-body {
+    padding: 20px; /* Increase internal padding */
   }
   
   .job-card:hover {
@@ -12,12 +25,12 @@
   }
   
   .company {
-    color: #6c757d;
+    color: #00221C;
     font-weight: 500;
   }
   
   .location {
-    color: #0d6efd;
+    color: #01949A;
   }
   
   .salary {

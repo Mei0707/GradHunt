@@ -2,34 +2,46 @@ import { useState, useEffect } from "react";
 import './App.css';
 import JobCard from './components/JobCard/JobCard';
 import SearchForm from './components/SearchForm/SearchForm';
+import Pagination from "./components/Pagination/Pagination";
 
 function App() {
   const [jobs, setJobs] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [count, setCount] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [currentSearch, setCurrentSearch] = useState({ role: 'software intern', location: 'New York' });
 
-  const searchJobs = async (role, location) => {
-    console.log('App received search request:', { role, location });
+  const searchJobs = async (role, location, page = 1) => {
     setIsLoading(true);
     setError(null);
     
+    console.log(`Searching for ${role} in ${location}, page ${page}`);
+
     try {
-      const url = `http://localhost:3000/api/jobs/search?role=${encodeURIComponent(role)}&location=${encodeURIComponent(location)}`;
-      console.log('Making API request to:', url);
+      // Use the updated endpoint for scraped jobs only
+      const url = `http://localhost:3000/api/jobs/search?role=${encodeURIComponent(role)}&location=${encodeURIComponent(location)}&page=${page}`;
+      console.log('Request URL:', url);
       
       const response = await fetch(url);
-      
+
       if (!response.ok) {
         throw new Error(`API error: ${response.status}`);
       }
-      
+
       const data = await response.json();
-      console.log('Received API response with', data.jobs?.length, 'jobs');
+      console.log(`Received ${data.jobs?.length} jobs from career sites, total: ${data.count}, pages: ${data.totalPages}`);
+      
       setJobs(data.jobs || []);
       setCount(data.count || 0);
+      setCurrentPage(data.currentPage || page);
+      setTotalPages(data.totalPages || 1);
+
+      // Save current search terms for pagination
+      setCurrentSearch({ role, location });
     } catch (error) {
-      console.error('Error in search:', error);
+      console.error('Search error:', error);
       setError(error.message);
       setJobs([]);
     } finally {
@@ -37,8 +49,17 @@ function App() {
     }
   };
 
+  const handlePageChange = (newPage) => {
+    if (newPage < 1 || newPage > totalPages) return;
+    
+    // Scroll to top when changing pages
+    window.scrollTo(0, 0);
+    
+    searchJobs(currentSearch.role, currentSearch.location, newPage);
+  };
+
   useEffect(() => {
-    //initial search
+    // Initial search
     searchJobs('software intern', 'New York');
   }, []);
 
@@ -47,12 +68,12 @@ function App() {
       <div className="header">
         <div className="container">
           <h1 className="display-4">GradHunt</h1>
-          <p className="lead">Find your perfect tech internship or entry-level position</p>
+          <p className="lead">Find tech internships and entry-level positions directly from company career sites</p>
         </div>
       </div>
 
       <div className="container">
-        <SearchForm onSearch={searchJobs} />
+        <SearchForm onSearch={(role, location) => searchJobs(role, location, 1)} />
 
         {isLoading ? (
           <div className="loading">
@@ -68,7 +89,8 @@ function App() {
         ) : (
           <>
             <div className="results-summary mb-4">
-              <h2>Found {count} jobs</h2>
+              <h2>Found {count} jobs from company career sites</h2>
+              <p>Showing page {currentPage} of {totalPages}</p>
             </div>
             <div className="row">
               {jobs.length > 0 ? (
@@ -83,11 +105,19 @@ function App() {
                 </div>
               )}
             </div>
+
+            {/* Show pagination if we have more than one page */}
+            {count > 0 && totalPages > 1 && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+              />
+            )}
           </>
         )}
       </div>
     </div>
-
   );
 }
 
