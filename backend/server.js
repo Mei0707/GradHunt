@@ -5,6 +5,7 @@ const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 const cors = require('cors');
 const jobRoutes = require('./routes/jobRoutes');
+const resumeRoutes = require('./routes/resumeRoutes');
 
 // Load environment variables
 dotenv.config();
@@ -53,6 +54,7 @@ app.get('/api/scraper-status', (req, res) => {
 
 // Job routes
 app.use('/api/jobs', jobRoutes);
+app.use('/api/resume', resumeRoutes);
 
 // Serve frontend from backend if in production
 if (process.env.NODE_ENV === 'production') {

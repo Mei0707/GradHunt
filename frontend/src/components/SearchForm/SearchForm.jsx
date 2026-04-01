@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import './SearchForm.css';
 
-function SearchForm({ onSearch }) {
+function SearchForm({ onSearch, onUploadClick, uploadedResumeName }) {
   const [role, setRole] = useState('software intern');
   const [location, setLocation] = useState('New York');
 
@@ -44,9 +44,24 @@ function SearchForm({ onSearch }) {
           />
         </div>
         <div className="col-md-2 d-flex align-items-end">
-          <button type="submit" className="btn btn-primary w-100">Search</button>
+          <div className="search-actions">
+            <button type="submit" className="btn btn-primary action-button">Search</button>
+            <button
+              type="button"
+              className="btn btn-outline-primary action-button upload-inline-button"
+              onClick={onUploadClick}
+            >
+              {uploadedResumeName ? 'Update Resume' : 'Upload Resume'}
+            </button>
+          </div>
         </div>
       </form>
+
+      {uploadedResumeName && (
+        <div className="uploaded-resume-inline">
+          Resume ready: <strong>{uploadedResumeName}</strong>
+        </div>
+      )}
     </div>
   );
 }

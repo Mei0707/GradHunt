@@ -3,6 +3,7 @@ import './App.css';
 import JobCard from './components/JobCard/JobCard';
 import SearchForm from './components/SearchForm/SearchForm';
 import Pagination from "./components/Pagination/Pagination";
+import ResumeUpload from './components/ResumeUpload/ResumeUpload';
 
 function App() {
   const [jobs, setJobs] = useState([]);
@@ -12,6 +13,8 @@ function App() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [currentSearch, setCurrentSearch] = useState({ role: 'software intern', location: 'New York' });
+  const [uploadedResume, setUploadedResume] = useState(null);
+  const [isResumeModalOpen, setIsResumeModalOpen] = useState(false);
 
   const searchJobs = async (role, location, page = 1) => {
     setIsLoading(true);
@@ -73,7 +76,11 @@ function App() {
       </div>
 
       <div className="container">
-        <SearchForm onSearch={(role, location) => searchJobs(role, location, 1)} />
+        <SearchForm
+          onSearch={(role, location) => searchJobs(role, location, 1)}
+          onUploadClick={() => setIsResumeModalOpen(true)}
+          uploadedResumeName={uploadedResume?.originalName}
+        />
 
         {isLoading ? (
           <div className="loading">
@@ -117,6 +124,37 @@ function App() {
           </>
         )}
       </div>
+
+      {isResumeModalOpen && (
+        <div className="resume-modal-backdrop" onClick={() => setIsResumeModalOpen(false)}>
+          <div
+            className="resume-modal-card"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="resume-modal-header">
+              <div>
+                <h2>Upload Resume</h2>
+                <p>Add your resume here without leaving the search page.</p>
+              </div>
+              <button
+                type="button"
+                className="resume-modal-close"
+                onClick={() => setIsResumeModalOpen(false)}
+                aria-label="Close resume upload"
+              >
+                ×
+              </button>
+            </div>
+
+            <ResumeUpload
+              onUploadSuccess={(resume) => {
+                setUploadedResume(resume);
+                setIsResumeModalOpen(false);
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,0 +1,27 @@
+.resume-upload-box {
+  background-color: white;
+  padding: 25px;
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  margin-bottom: 30px;
+}
+
+.resume-upload-header {
+  margin-bottom: 20px;
+}
+
+.resume-upload-header h2 {
+  font-size: 1.4rem;
+  margin-bottom: 8px;
+  color: #00221C;
+}
+
+.resume-upload-header p {
+  margin-bottom: 0;
+  color: #4f6367;
+}
+
+.resume-file-meta {
+  margin-top: 16px;
+  color: #004369;
+}

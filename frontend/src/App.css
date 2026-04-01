@@ -27,3 +27,62 @@
   align-items: center;
   height: 200px;
 }
+
+.resume-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 22, 28, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 50;
+}
+
+.resume-modal-card {
+  width: min(720px, 100%);
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.24);
+  overflow: hidden;
+}
+
+.resume-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 24px 24px 0;
+}
+
+.resume-modal-header h2 {
+  margin: 0 0 6px;
+  color: #00221C;
+  font-size: 1.5rem;
+}
+
+.resume-modal-header p {
+  margin: 0;
+  color: #4f6367;
+}
+
+.resume-modal-close {
+  border: none;
+  background: transparent;
+  font-size: 2rem;
+  line-height: 1;
+  color: #4f6367;
+  cursor: pointer;
+}
+
+@media (max-width: 768px) {
+  .resume-modal-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .resume-modal-card {
+    width: 100%;
+    border-radius: 20px 20px 0 0;
+  }
+}
