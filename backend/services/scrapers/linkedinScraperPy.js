@@ -7,9 +7,10 @@ const fs = require('fs');
  * Scrapes LinkedIn Jobs using a Python script
  * @param {string} role - Job role to search for
  * @param {string} location - Location to search in
+ * @param {number} numJobs - Number of jobs to request from the scraper
  * @returns {Promise<Array>} - Array of job objects
  */
-const scrapeLinkedInJobsPy = async (role, location) => {
+const scrapeLinkedInJobsPy = async (role, location, numJobs = 50) => {
   return new Promise((resolve, reject) => {
     console.log(`Starting LinkedIn jobs scraper for: ${role} in ${location}`);
     
@@ -17,7 +18,7 @@ const scrapeLinkedInJobsPy = async (role, location) => {
     const scriptPath = path.join(__dirname, 'linkedinScraper.py');
     
     // Spawn a Python process
-    const pythonProcess = spawn('python', [scriptPath, role, location, '25']);
+    const pythonProcess = spawn('python', [scriptPath, role, location, String(numJobs)]);
     
     pythonProcess.stdout.on('data', (data) => {
       console.log(`Python output: ${data}`);

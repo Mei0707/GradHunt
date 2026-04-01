@@ -1,6 +1,67 @@
 // services/jobAggregationService.js
 const { scrapeAllCompanyJobs } = require('./scrapers/companyScrapers');
 
+const PAGE_SIZE = 20;
+const CACHE_TTL_MS = 10 * 60 * 1000;
+const jobSearchCache = new Map();
+
+const buildCacheKey = (role, location) => `${role.trim().toLowerCase()}::${location.trim().toLowerCase()}`;
+
+const paginateJobs = (jobs, page) => {
+  const startIndex = (page - 1) * PAGE_SIZE;
+  const paginatedJobs = jobs.slice(startIndex, startIndex + PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(jobs.length / PAGE_SIZE));
+
+  return {
+    jobs: paginatedJobs,
+    count: jobs.length,
+    totalPages,
+    currentPage: page,
+    pageSize: PAGE_SIZE,
+  };
+};
+
+const getCachedJobs = async (role, location) => {
+  const cacheKey = buildCacheKey(role, location);
+  const cachedEntry = jobSearchCache.get(cacheKey);
+  const now = Date.now();
+
+  if (cachedEntry && cachedEntry.expiresAt > now) {
+    console.log(`Using cached jobs for: ${role} in ${location}`);
+    return cachedEntry.jobs;
+  }
+
+  if (cachedEntry?.pendingPromise) {
+    console.log(`Waiting for in-flight scrape for: ${role} in ${location}`);
+    return cachedEntry.pendingPromise;
+  }
+
+  const pendingPromise = (async () => {
+    const scrapedJobs = await scrapeAllCompanyJobs(role, location);
+    scrapedJobs.sort((a, b) => new Date(b.created) - new Date(a.created));
+
+    jobSearchCache.set(cacheKey, {
+      jobs: scrapedJobs,
+      expiresAt: Date.now() + CACHE_TTL_MS,
+    });
+
+    return scrapedJobs;
+  })();
+
+  jobSearchCache.set(cacheKey, {
+    jobs: [],
+    expiresAt: 0,
+    pendingPromise,
+  });
+
+  try {
+    return await pendingPromise;
+  } catch (error) {
+    jobSearchCache.delete(cacheKey);
+    throw error;
+  }
+};
+
 /**
  * Gets aggregated job listings from multiple company career sites
  * @param {string} role - Job role to search for
@@ -11,27 +72,11 @@ const { scrapeAllCompanyJobs } = require('./scrapers/companyScrapers');
 const getAggregatedJobs = async (role, location, page = 1) => {
   try {
     console.log(`Aggregating jobs for: ${role} in ${location}, page ${page}`);
-    
-    // Get jobs from company career pages
-    const scrapedJobs = await scrapeAllCompanyJobs(role, location);
-    
-    // Sort by date (newest first)
-    scrapedJobs.sort((a, b) => new Date(b.created) - new Date(a.created));
-    
-    // Implement pagination
-    const pageSize = 25;
-    const startIndex = (page - 1) * pageSize;
-    const paginatedJobs = scrapedJobs.slice(startIndex, startIndex + pageSize);
-    
-    // Calculate total pages
-    const totalPages = Math.max(1, Math.ceil(scrapedJobs.length / pageSize));
-    
-    return {
-      jobs: paginatedJobs,
-      count: scrapedJobs.length,
-      totalPages: totalPages,
-      currentPage: parseInt(page)
-    };
+
+    const currentPage = parseInt(page);
+    const scrapedJobs = await getCachedJobs(role, location);
+
+    return paginateJobs(scrapedJobs, currentPage);
   } catch (error) {
     console.error('Error in job aggregation:', error);
     // Return empty results on error
@@ -39,7 +84,8 @@ const getAggregatedJobs = async (role, location, page = 1) => {
       jobs: [],
       count: 0,
       totalPages: 1,
-      currentPage: parseInt(page)
+      currentPage: parseInt(page),
+      pageSize: PAGE_SIZE
     };
   }
 };

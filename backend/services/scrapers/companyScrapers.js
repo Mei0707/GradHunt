@@ -1,17 +1,30 @@
 // services/scrapers/companyScrapers.js
 const { scrapeLinkedInJobsPy } = require('./linkedinScraperPy');
+const { scrapeIndeedJobsPy } = require('./indeedScraperPy');
+const { scrapeIndeedJobsBrowser } = require('./indeedScraperBrowser');
+
+const TARGET_JOBS_PER_SOURCE = 50;
 
 const scrapeAllCompanyJobs = async (role, location) => {
   console.log(`Starting to scrape jobs for ${role} in ${location}`);
   
   try {
-    // Use LinkedIn scraper
-    const linkedinJobs = await scrapeLinkedInJobsPy(role, location);
-    
-    // You can add more job sources here
+    const indeedJobsPromise = (async () => {
+      try {
+        return await scrapeIndeedJobsBrowser(role, location, TARGET_JOBS_PER_SOURCE);
+      } catch (error) {
+        console.error('Indeed browser scraper failed, falling back to Python scraper:', error.message);
+        return scrapeIndeedJobsPy(role, location, TARGET_JOBS_PER_SOURCE);
+      }
+    })();
+
+    const [linkedinJobs, indeedJobs] = await Promise.all([
+        scrapeLinkedInJobsPy(role, location, TARGET_JOBS_PER_SOURCE),
+        indeedJobsPromise
+    ]);
     
     // Combine all jobs
-    const allJobs = [...linkedinJobs];
+    const allJobs = [...linkedinJobs, ...indeedJobs];
     
     console.log(`Total jobs found: ${allJobs.length}`);
     return allJobs;
@@ -23,5 +36,6 @@ const scrapeAllCompanyJobs = async (role, location) => {
 
 module.exports = {
   scrapeLinkedInJobsPy,
-  scrapeAllCompanyJobs
+  scrapeAllCompanyJobs,
+  scrapeIndeedJobsPy
 };
