@@ -244,8 +244,47 @@
   width: min(560px, 100%);
 }
 
+.profile-modal-card {
+  width: min(920px, 100%);
+}
+
 .apply-modal-actions {
   gap: 12px;
+}
+
+.profile-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.profile-stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 18px;
+  border-radius: 14px;
+  background: rgba(201, 173, 167, 0.18);
+  border: 1px solid var(--color-border);
+}
+
+.profile-stat-card strong {
+  font-size: 1.8rem;
+  color: var(--color-ink);
+}
+
+.profile-stat-card span {
+  color: var(--color-slate);
+  font-weight: 500;
+}
+
+.profile-section + .profile-section {
+  margin-top: 26px;
+}
+
+.profile-empty-state {
+  margin-bottom: 0;
 }
 
 .applied-history-list {
@@ -284,6 +323,10 @@
   }
 
   .applied-history-list {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-summary-grid {
     grid-template-columns: 1fr;
   }
 

@@ -27,6 +27,7 @@ function App() {
   const [savedResumes, setSavedResumes] = useState([]);
   const [appliedJobs, setAppliedJobs] = useState([]);
   const [applyPromptJob, setApplyPromptJob] = useState(null);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   const readJsonResponse = async (response) => {
     const rawText = await response.text();
@@ -349,6 +350,7 @@ function App() {
     setAuthError(null);
     setSavedResumes([]);
     setAppliedJobs([]);
+    setIsProfileOpen(false);
     window.localStorage.removeItem(AUTH_STORAGE_KEY);
   };
 
@@ -365,6 +367,9 @@ function App() {
               {authState?.user ? (
                 <>
                   <span className="auth-welcome">Signed in as {authState.user.name}</span>
+                  <button type="button" className="btn btn-outline-light" onClick={() => setIsProfileOpen(true)}>
+                    Profile
+                  </button>
                   <button type="button" className="btn btn-light" onClick={handleLogout}>Log out</button>
                 </>
               ) : (
@@ -483,36 +488,102 @@ function App() {
                 onPageChange={handlePageChange}
               />
             )}
-
-            {authState?.user && appliedJobs.length > 0 && (
-              <div className="resume-analysis-card">
-                <div className="resume-analysis-header">
-                  <div>
-                    <h2>Applied Job History</h2>
-                    <p>Your recent jobs marked as applied.</p>
-                  </div>
-                  <div className="resume-analysis-level">{appliedJobs.length} saved</div>
-                </div>
-                <div className="applied-history-list">
-                  {appliedJobs.slice(0, 6).map((job) => (
-                    <a
-                      key={job.id}
-                      className="applied-history-item"
-                      href={job.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <strong>{job.title}</strong>
-                      <span>{job.company} · {job.location}</span>
-                      <small>Applied {new Date(job.appliedAt).toLocaleDateString()}</small>
-                    </a>
-                  ))}
-                </div>
-              </div>
-            )}
           </>
         )}
       </div>
+
+      {isProfileOpen && authState?.user && (
+        <div className="resume-modal-backdrop" onClick={() => setIsProfileOpen(false)}>
+          <div
+            className="job-details-modal-card profile-modal-card"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="resume-modal-header">
+              <div>
+                <h2>{authState.user.name}'s Profile</h2>
+                <p>Review your saved resumes and applied job history.</p>
+              </div>
+              <button
+                type="button"
+                className="resume-modal-close"
+                onClick={() => setIsProfileOpen(false)}
+                aria-label="Close profile"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="job-details-body">
+              <div className="profile-summary-grid">
+                <div className="profile-stat-card">
+                  <strong>{savedResumes.length}</strong>
+                  <span>Saved resumes</span>
+                </div>
+                <div className="profile-stat-card">
+                  <strong>{appliedJobs.length}</strong>
+                  <span>Applied jobs</span>
+                </div>
+              </div>
+
+              <div className="profile-section">
+                <div className="resume-analysis-header">
+                  <div>
+                    <h2>Applied Job History</h2>
+                    <p>Jobs you have marked as applied.</p>
+                  </div>
+                  <div className="resume-analysis-level">{appliedJobs.length} saved</div>
+                </div>
+                {appliedJobs.length > 0 ? (
+                  <div className="applied-history-list">
+                    {appliedJobs.map((job) => (
+                      <a
+                        key={job.id}
+                        className="applied-history-item"
+                        href={job.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <strong>{job.title}</strong>
+                        <span>{job.company} · {job.location}</span>
+                        <small>Applied {new Date(job.appliedAt).toLocaleDateString()}</small>
+                      </a>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="alert alert-info profile-empty-state">
+                    No applied jobs yet. When you click Apply and confirm it, it will show up here.
+                  </div>
+                )}
+              </div>
+
+              <div className="profile-section">
+                <div className="resume-analysis-header">
+                  <div>
+                    <h2>Saved Resumes</h2>
+                    <p>Your previously uploaded resumes.</p>
+                  </div>
+                  <div className="resume-analysis-level">{savedResumes.length} saved</div>
+                </div>
+                {savedResumes.length > 0 ? (
+                  <div className="applied-history-list">
+                    {savedResumes.map((resume) => (
+                      <div key={resume.id} className="applied-history-item">
+                        <strong>{resume.originalName}</strong>
+                        <span>{resume.analysis?.experience_level || 'Resume analysis available'}</span>
+                        <small>Uploaded {new Date(resume.createdAt).toLocaleDateString()}</small>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="alert alert-info profile-empty-state">
+                    No saved resumes yet. Upload one from the search form to store it in your profile.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isResumeModalOpen && (
         <div className="resume-modal-backdrop" onClick={() => setIsResumeModalOpen(false)}>
