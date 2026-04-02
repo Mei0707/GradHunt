@@ -91,6 +91,13 @@
   font-size: 0.9rem;
 }
 
+.match-mode-note {
+  margin-top: 8px;
+  margin-bottom: 0;
+  color: #028476;
+  font-weight: 500;
+}
+
 .resume-modal-backdrop {
   position: fixed;
   inset: 0;

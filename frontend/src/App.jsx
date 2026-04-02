@@ -16,18 +16,28 @@ function App() {
   const [uploadedResume, setUploadedResume] = useState(null);
   const [isResumeModalOpen, setIsResumeModalOpen] = useState(false);
 
-  const searchJobs = async (role, location, page = 1) => {
+  const searchJobs = async (role, location, page = 1, resumeProfileOverride = null) => {
     setIsLoading(true);
     setError(null);
     
     console.log(`Searching for ${role} in ${location}, page ${page}`);
 
     try {
-      // Use the updated endpoint for scraped jobs only
-      const url = `http://localhost:3000/api/jobs/search?role=${encodeURIComponent(role)}&location=${encodeURIComponent(location)}&page=${page}`;
-      console.log('Request URL:', url);
+      const payload = {
+        role,
+        location,
+        page,
+        resumeProfile: resumeProfileOverride || uploadedResume?.analysis || null,
+      };
+      console.log('Search payload:', payload);
       
-      const response = await fetch(url);
+      const response = await fetch('http://localhost:3000/api/jobs/search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
 
       if (!response.ok) {
         throw new Error(`API error: ${response.status}`);
@@ -148,6 +158,9 @@ function App() {
             <div className="results-summary mb-4">
               <h2>Found {count} jobs from company career sites</h2>
               <p>Showing page {currentPage} of {totalPages}</p>
+              {uploadedResume?.analysis && (
+                <p className="match-mode-note">Resume-aware ranking is active for this search.</p>
+              )}
             </div>
             <div className="row">
               {jobs.length > 0 ? (
@@ -200,6 +213,7 @@ function App() {
               onUploadSuccess={(resume) => {
                 setUploadedResume(resume);
                 setIsResumeModalOpen(false);
+                searchJobs(currentSearch.role, currentSearch.location, 1, resume.analysis);
               }}
             />
           </div>

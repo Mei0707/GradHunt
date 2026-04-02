@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { analyzeStoredResume } = require('../services/resumeAnalysisService');
+const { analyzeResumeInput } = require('../services/resumeAnalysisService');
 
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_EXTENSIONS = new Set(['.pdf', '.doc', '.docx', '.txt']);
@@ -79,16 +79,16 @@ const uploadResume = async (req, res) => {
 
 const analyzeResume = async (req, res) => {
   try {
-    const { storedFileName } = req.body;
+    const { storedFileName, resumeText } = req.body;
 
-    if (!storedFileName) {
+    if (!storedFileName && !resumeText) {
       return res.status(400).json({
-        error: 'Missing storedFileName',
-        message: 'storedFileName is required to analyze an uploaded resume.',
+        error: 'Missing resume input',
+        message: 'Provide either storedFileName or resumeText to analyze a resume.',
       });
     }
 
-    const result = await analyzeStoredResume(storedFileName);
+    const result = await analyzeResumeInput({ storedFileName, resumeText });
     res.json({
       message: 'Resume analyzed successfully.',
       ...result,

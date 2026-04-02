@@ -1,5 +1,6 @@
 // services/jobAggregationService.js
 const { scrapeAllCompanyJobs } = require('./scrapers/companyScrapers');
+const { rankJobsForResume } = require('./jobMatchingService');
 
 const PAGE_SIZE = 20;
 const CACHE_TTL_MS = 10 * 60 * 1000;
@@ -69,14 +70,15 @@ const getCachedJobs = async (role, location) => {
  * @param {number} page - Page number for pagination
  * @returns {Object} - Object containing jobs and pagination info
  */
-const getAggregatedJobs = async (role, location, page = 1) => {
+const getAggregatedJobs = async (role, location, page = 1, resumeProfile = null) => {
   try {
     console.log(`Aggregating jobs for: ${role} in ${location}, page ${page}`);
 
     const currentPage = parseInt(page);
     const scrapedJobs = await getCachedJobs(role, location);
+    const rankedJobs = rankJobsForResume(scrapedJobs, resumeProfile);
 
-    return paginateJobs(scrapedJobs, currentPage);
+    return paginateJobs(rankedJobs, currentPage);
   } catch (error) {
     console.error('Error in job aggregation:', error);
     // Return empty results on error

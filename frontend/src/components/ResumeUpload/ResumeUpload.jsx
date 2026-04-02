@@ -13,8 +13,24 @@ const readFileAsBase64 = (file) =>
     reader.readAsDataURL(file);
   });
 
+const readJsonResponse = async (response) => {
+  const text = await response.text();
+
+  try {
+    return text ? JSON.parse(text) : {};
+  } catch (error) {
+    const isHtml = text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html');
+    throw new Error(
+      isHtml
+        ? 'The backend returned an HTML error page. Please restart the backend and try again.'
+        : 'The backend returned an invalid response. Please try again.'
+    );
+  }
+};
+
 function ResumeUpload({ onUploadSuccess }) {
   const [selectedFile, setSelectedFile] = useState(null);
+  const [resumeText, setResumeText] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState('');
@@ -31,7 +47,51 @@ function ResumeUpload({ onUploadSuccess }) {
     event.preventDefault();
 
     if (!selectedFile) {
-      setError('Please choose a resume file before uploading.');
+      if (!resumeText.trim()) {
+        setError('Please choose a resume file or paste your resume text before uploading.');
+        return;
+      }
+    }
+
+    if (!selectedFile && resumeText.trim()) {
+      setIsAnalyzing(true);
+      setError('');
+      setSuccessMessage('');
+
+      try {
+        const analysisResponse = await fetch('http://localhost:3000/api/resume/analyze', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            resumeText,
+          }),
+        });
+
+        const analysisData = await readJsonResponse(analysisResponse);
+        if (!analysisResponse.ok) {
+          throw new Error(analysisData.message || 'Resume analysis failed.');
+        }
+
+        setSuccessMessage('Resume text analyzed successfully.');
+        if (onUploadSuccess) {
+          onUploadSuccess({
+            originalName: 'Pasted resume text',
+            storedFileName: null,
+            mimeType: 'text/plain',
+            size: resumeText.length,
+            uploadedAt: new Date().toISOString(),
+            analysis: analysisData.analysis,
+            extractedTextPreview: analysisData.extractedTextPreview,
+          });
+        }
+      } catch (uploadError) {
+        console.error('Resume analysis failed:', uploadError);
+        setError(uploadError.message || 'Failed to analyze resume text.');
+      } finally {
+        setIsAnalyzing(false);
+      }
       return;
     }
 
@@ -53,7 +113,7 @@ function ResumeUpload({ onUploadSuccess }) {
         }),
       });
 
-      const data = await response.json();
+      const data = await readJsonResponse(response);
       if (!response.ok) {
         throw new Error(data.message || 'Upload failed.');
       }
@@ -71,7 +131,7 @@ function ResumeUpload({ onUploadSuccess }) {
         }),
       });
 
-      const analysisData = await analysisResponse.json();
+      const analysisData = await readJsonResponse(analysisResponse);
       if (!analysisResponse.ok) {
         throw new Error(analysisData.message || 'Resume analysis failed.');
       }
@@ -117,6 +177,18 @@ function ResumeUpload({ onUploadSuccess }) {
           <button type="submit" className="btn btn-primary w-100" disabled={isUploading || isAnalyzing}>
             {isUploading ? 'Uploading...' : isAnalyzing ? 'Analyzing...' : 'Upload Resume'}
           </button>
+        </div>
+
+        <div className="col-12">
+          <label htmlFor="resumeText" className="form-label">Or Paste Resume Text</label>
+          <textarea
+            id="resumeText"
+            className="form-control"
+            rows="8"
+            placeholder="Paste your resume text here if the PDF is not machine-readable."
+            value={resumeText}
+            onChange={(event) => setResumeText(event.target.value)}
+          />
         </div>
       </form>
 

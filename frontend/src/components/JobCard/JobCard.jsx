@@ -29,11 +29,18 @@ function JobCard({ job }) {
   
   // Format applicants info if available
   const applicantsInfo = job.num_applicants || '';
+  const matchScore = typeof job.matchScore === 'number' ? job.matchScore : null;
+  const matchReasons = Array.isArray(job.matchReasons) ? job.matchReasons : [];
 
   return (
     <div className="col-md-6 col-lg-4">
       <div className="card job-card h-100">
         <div className="card-body">
+          {matchScore !== null && (
+            <div className="match-score-row mb-3">
+              <span className="match-score-badge">{matchScore}% match</span>
+            </div>
+          )}
           <h5 className="card-title">{job.title}</h5>
           <div className="company mb-3">{job.company}</div>
           <div className="location mb-3">📍 {job.location}</div>
@@ -60,6 +67,14 @@ function JobCard({ job }) {
           {salaryText && <div className="salary mb-3">{salaryText}</div>}
           
           <p className="card-text job-description my-4">{job.description}</p>
+
+          {matchReasons.length > 0 && (
+            <div className="match-reasons mb-3">
+              {matchReasons.slice(0, 3).map((reason) => (
+                <div key={reason} className="match-reason-item">{reason}</div>
+              ))}
+            </div>
+          )}
           
           <div className="d-flex justify-content-between align-items-center mt-4">
             <small className="text-muted">Source: {job.source}</small>

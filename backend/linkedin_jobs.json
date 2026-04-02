@@ -11,11 +11,22 @@
     "source": "LinkedIn"
   },
   {
+    "id": "linkedin-4369001494",
+    "title": "Software Engineer, Intern (Summer)",
+    "company": "Stripe",
+    "location": "New York, United States",
+    "time_posted": "2 weeks ago",
+    "num_applicants": "0 applicants",
+    "description": "Who we areAbout StripeStripe is a financial infrastructure platform for businesses. Millions of companies\u2014from the world\u2019s largest enterprises to the most ambitious startups\u2014use Stripe to accept payments, grow their revenue, and accelerate new business opportunities. Our mission is to increase the G...",
+    "url": "https://www.linkedin.com/jobs/view/4369001494",
+    "source": "LinkedIn"
+  },
+  {
     "id": "linkedin-4390238983",
     "title": "Software Engineer Intern",
     "company": "Arcesium",
     "location": "New York, United States",
-    "time_posted": "1 day ago",
+    "time_posted": "2 days ago",
     "num_applicants": "0 applicants",
     "description": "Company OverviewArcesium is a global financial technology firm that solves complex data-driven challenges faced by some of the world\u2019s most sophisticated financial institutions. We constantly innovate our platform and capabilities to meet tomorrow\u2019s challenges, anticipate the risks our clients encou...",
     "url": "https://www.linkedin.com/jobs/view/4390238983",
@@ -77,17 +88,6 @@
     "source": "LinkedIn"
   },
   {
-    "id": "linkedin-4382200164",
-    "title": "Software Engineer Intern (Summer 2026)",
-    "company": "Whatnot",
-    "location": "New York, NY",
-    "time_posted": "1 day ago",
-    "num_applicants": "0 applicants",
-    "description": "\ud83d\ude80 Join the Future of Commerce with Whatnot!Whatnot is the largest livestream shopping platform in North America and Europe to buy, sell, and discover the things you love. Whether it's trading cards, fashion, electronics, or live plants, our sellers are building real businesses across hundreds of cat...",
-    "url": "https://www.linkedin.com/jobs/view/4382200164",
-    "source": "LinkedIn"
-  },
-  {
     "id": "linkedin-4374527130",
     "title": "Software Engineering Intern",
     "company": "Dorsia",
@@ -121,11 +121,22 @@
     "source": "LinkedIn"
   },
   {
+    "id": "linkedin-4382003726",
+    "title": "SDET Intern",
+    "company": "Medidata Solutions",
+    "location": "New York, United States",
+    "time_posted": "2 days ago",
+    "num_applicants": "166 applicants",
+    "description": "Medidata SolutionsNew YorkAbout our Company:Medidata is powering smarter treatments and healthier people through digital solutions to support clinical trials. Celebrating 25 years of ground-breaking technological innovation across more than 36,000 trials and 11 million patients, Medidata offers indu...",
+    "url": "https://www.linkedin.com/jobs/view/4382003726",
+    "source": "LinkedIn"
+  },
+  {
     "id": "linkedin-4372626412",
     "title": "Software Developer Intern 2026",
     "company": "IBM",
     "location": "New York, United States",
-    "time_posted": "2 weeks ago",
+    "time_posted": "3 weeks ago",
     "num_applicants": "0 applicants",
     "description": "IntroductionA career in IBM Software means you\u2019ll be part of a team that transforms our customer\u2019s challenges into solutions.Seeking new possibilities and always staying curious, we are a team dedicated to creating the world\u2019s leading AI-powered, cloud-native software solutions for our customers. Ou...",
     "url": "https://www.linkedin.com/jobs/view/4372626412",
@@ -137,7 +148,7 @@
     "company": "Brand Networks",
     "location": "Rochester, NY",
     "time_posted": "4 weeks ago",
-    "num_applicants": "147 applicants",
+    "num_applicants": "149 applicants",
     "description": "Job TypeInternshipDescriptionCompany Overview:Since 2006, Brand Networks, (an Augeo Company Since Our Acquisition In 2023) Has Been a Leader In Social Media Tech Innovation And Media Excellence. BN\u2019s Mission Has Been To Provide Cutting-edge Social Advertising Solutions That Allow Brands To Maximize ...",
     "url": "https://www.linkedin.com/jobs/view/4380519313",
     "source": "LinkedIn"
@@ -148,7 +159,7 @@
     "company": "Voyant Photonics",
     "location": "New York, NY",
     "time_posted": "1 month ago",
-    "num_applicants": "171 applicants",
+    "num_applicants": "172 applicants",
     "description": "About VoyantVoyant Photonics, based in the heart of New York City, is transforming machine perception with a new class of LiDAR devices that are compact enough to fit in the palm of your hand and powerful enough to measure range, velocity, and reflectivity with unparalleled accuracy. By leveraging c...",
     "url": "https://www.linkedin.com/jobs/view/4377141110",
     "source": "LinkedIn"
@@ -181,7 +192,7 @@
     "company": "Capital Rx",
     "location": "Denver, NY",
     "time_posted": "2 weeks ago",
-    "num_applicants": "193 applicants",
+    "num_applicants": "195 applicants",
     "description": "About Judi HealthJudi Health is an enterprise health technology company providing a comprehensive suite of solutions for employers and health plans, including:Capital Rx, a public benefit corporation delivering full-service pharmacy benefit management (PBM) solutions to self-insured employers,Judi H...",
     "url": "https://www.linkedin.com/jobs/view/4386880451",
     "source": "LinkedIn"
@@ -206,17 +217,6 @@
     "num_applicants": "120 applicants",
     "description": "Job TypeInternshipDescriptionNorth Atlantic Industries is a leading provider of embedded electronic solutions, specializing in rugged embedded computing, power supplies and motion simulation and measurement technologies. Our products and services are used by the military, aerospace, and industrial m...",
     "url": "https://www.linkedin.com/jobs/view/4360536288",
-    "source": "LinkedIn"
-  },
-  {
-    "id": "linkedin-4380644060",
-    "title": "Software Engineer Intern",
-    "company": "Jolera",
-    "location": "Buffalo, NY",
-    "time_posted": "3 weeks ago",
-    "num_applicants": "110 applicants",
-    "description": "OverviewThe Software Engineer Intern will play a key role in building and enhancing full-stack applications that power Jolera\u2019s Service Automation initiatives. This position involves developing modern web applications written in C# and .NET, including interactive dashboards and data visualization la...",
-    "url": "https://www.linkedin.com/jobs/view/4380644060",
     "source": "LinkedIn"
   }
 ]

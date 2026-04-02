@@ -8,6 +8,7 @@ console.log('Loading job routes...');
 
 // Make sure these routes use actual functions from your controller
 router.get('/search', jobController.searchJobs);
+router.post('/search', jobController.searchJobs);
 
 // If you have a getJobById route, make sure it's properly defined
 // router.get('/:id', jobController.getJobById);

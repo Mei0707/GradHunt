@@ -124,10 +124,11 @@ const jobAggregationService = require('../services/jobAggregationService');
 // controllers/jobController.js
 const searchJobs = async (req, res) => {
   try {
-    console.log('Request params:', req.query);
+    const requestSource = req.method === 'POST' ? req.body : req.query;
+    console.log('Request params:', requestSource);
     
     // Extract query parameters from request
-    const { role = 'software intern', location = 'New York', page = '1' } = req.query;
+    const { role = 'software intern', location = 'New York', page = '1', resumeProfile = null } = requestSource;
     
     console.log(`Searching for ${role} in ${location}, page ${page}`);
     
@@ -137,7 +138,8 @@ const searchJobs = async (req, res) => {
       jobData = await jobAggregationService.getAggregatedJobs(
         role, 
         location, 
-        parseInt(page)
+        parseInt(page),
+        resumeProfile
       );
     } catch (error) {
       console.error('Error from job aggregation service:', error);

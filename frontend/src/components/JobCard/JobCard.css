@@ -24,10 +24,24 @@
     transform: translateY(-5px);
   }
   
-  .company {
-    color: #00221C;
-    font-weight: 500;
-  }
+.company {
+  color: #00221C;
+  font-weight: 500;
+}
+
+.match-score-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.match-score-badge {
+  background: #e8f5f3;
+  color: #004369;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
   
   .location {
     color: #01949A;
@@ -38,11 +52,22 @@
     color: #198754;
   }
   
-  .job-description {
-    max-height: 100px;
-    overflow: hidden;
+.job-description {
+  max-height: 100px;
+  overflow: hidden;
     text-overflow: ellipsis;
     display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-  }
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.match-reasons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.match-reason-item {
+  font-size: 0.86rem;
+  color: #4f6367;
+}
