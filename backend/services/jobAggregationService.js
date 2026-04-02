@@ -7,7 +7,27 @@ const CACHE_TTL_MS = 10 * 60 * 1000;
 const EMPTY_CACHE_TTL_MS = 30 * 1000;
 const jobSearchCache = new Map();
 
-const buildCacheKey = (role, location) => `${role.trim().toLowerCase()}::${location.trim().toLowerCase()}`;
+const buildCacheKey = (role, location, jobType) =>
+  `${role.trim().toLowerCase()}::${location.trim().toLowerCase()}::${jobType.trim().toLowerCase()}`;
+
+const INTERNSHIP_PATTERN = /\b(intern|internship|co-?op|apprentice|summer intern|fall intern)\b/i;
+const FULL_TIME_EXCLUSION_PATTERN = /\b(intern|internship|co-?op|contract|temporary|temp|part-time)\b/i;
+
+const filterJobsByType = (jobs, jobType = 'full-time') => {
+  if (jobType === 'intern') {
+    return jobs.filter((job) =>
+      INTERNSHIP_PATTERN.test(`${job.title || ''} ${job.description || ''}`)
+    );
+  }
+
+  if (jobType === 'full-time') {
+    return jobs.filter((job) =>
+      !FULL_TIME_EXCLUSION_PATTERN.test(`${job.title || ''} ${job.description || ''}`)
+    );
+  }
+
+  return jobs;
+};
 
 const paginateJobs = (jobs, page) => {
   const startIndex = (page - 1) * PAGE_SIZE;
@@ -23,8 +43,8 @@ const paginateJobs = (jobs, page) => {
   };
 };
 
-const getCachedJobs = async (role, location) => {
-  const cacheKey = buildCacheKey(role, location);
+const getCachedJobs = async (role, location, jobType = 'full-time') => {
+  const cacheKey = buildCacheKey(role, location, jobType);
   const cachedEntry = jobSearchCache.get(cacheKey);
   const now = Date.now();
 
@@ -39,7 +59,7 @@ const getCachedJobs = async (role, location) => {
   }
 
   const pendingPromise = (async () => {
-    const scrapedJobs = await scrapeAllCompanyJobs(role, location);
+    const scrapedJobs = await scrapeAllCompanyJobs(role, location, jobType);
     scrapedJobs.sort((a, b) => new Date(b.created) - new Date(a.created));
 
     jobSearchCache.set(cacheKey, {
@@ -77,13 +97,14 @@ const getCachedJobs = async (role, location) => {
  * @param {number} page - Page number for pagination
  * @returns {Object} - Object containing jobs and pagination info
  */
-const getAggregatedJobs = async (role, location, page = 1, resumeProfile = null) => {
+const getAggregatedJobs = async (role, location, page = 1, resumeProfile = null, jobType = 'full-time') => {
   try {
-    console.log(`Aggregating jobs for: ${role} in ${location}, page ${page}`);
+    console.log(`Aggregating jobs for: ${role} in ${location}, page ${page}, type ${jobType}`);
 
     const currentPage = parseInt(page);
-    const scrapedJobs = await getCachedJobs(role, location);
-    const rankedJobs = rankJobsForResume(scrapedJobs, resumeProfile);
+    const scrapedJobs = await getCachedJobs(role, location, jobType);
+    const filteredJobs = filterJobsByType(scrapedJobs, jobType);
+    const rankedJobs = rankJobsForResume(filteredJobs, resumeProfile);
 
     return paginateJobs(rankedJobs, currentPage);
   } catch (error) {

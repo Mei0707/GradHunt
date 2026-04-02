@@ -129,9 +129,15 @@ const searchJobs = async (req, res) => {
     console.log('Request params:', requestSource);
     
     // Extract query parameters from request
-    const { role = 'software intern', location = 'New York', page = '1', resumeProfile = null } = requestSource;
+    const {
+      role = 'software engineer',
+      location = 'New York',
+      page = '1',
+      resumeProfile = null,
+      jobType = 'full-time',
+    } = requestSource;
     
-    console.log(`Searching for ${role} in ${location}, page ${page}`);
+    console.log(`Searching for ${role} in ${location}, page ${page}, type ${jobType}`);
     
     // Try to get job data
     let jobData;
@@ -140,7 +146,8 @@ const searchJobs = async (req, res) => {
         role, 
         location, 
         parseInt(page),
-        resumeProfile
+        resumeProfile,
+        jobType
       );
     } catch (error) {
       console.error('Error from job aggregation service:', error);

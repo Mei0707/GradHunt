@@ -6,7 +6,7 @@ import Pagination from "./components/Pagination/Pagination";
 import ResumeUpload from './components/ResumeUpload/ResumeUpload';
 
 function App() {
-  const DEFAULT_SEARCH = { role: 'software intern', location: 'New York' };
+  const DEFAULT_SEARCH = { role: 'software engineer', location: 'New York', jobType: 'full-time' };
   const [jobs, setJobs] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -29,17 +29,18 @@ function App() {
     }
   };
 
-  const searchJobs = async (role, location, page = 1, resumeProfileOverride = null) => {
+  const searchJobs = async (role, location, page = 1, resumeProfileOverride = null, jobType = currentSearch.jobType || DEFAULT_SEARCH.jobType) => {
     setIsLoading(true);
     setError(null);
     
-    console.log(`Searching for ${role} in ${location}, page ${page}`);
+    console.log(`Searching for ${role} in ${location}, page ${page}, type ${jobType}`);
 
     try {
       const payload = {
         role,
         location,
         page,
+        jobType,
         resumeProfile: resumeProfileOverride || uploadedResume?.analysis || null,
       };
       console.log('Search payload:', payload);
@@ -65,7 +66,7 @@ function App() {
       setTotalPages(data.totalPages || 1);
 
       // Save current search terms for pagination
-      setCurrentSearch({ role, location });
+      setCurrentSearch({ role, location, jobType });
     } catch (error) {
       console.error('Search error:', error);
       if (error instanceof TypeError && error.message === 'Failed to fetch') {
@@ -85,7 +86,7 @@ function App() {
     // Scroll to top when changing pages
     window.scrollTo(0, 0);
     
-    searchJobs(currentSearch.role, currentSearch.location, newPage);
+    searchJobs(currentSearch.role, currentSearch.location, newPage, null, currentSearch.jobType);
   };
 
   useEffect(() => {
@@ -152,6 +153,7 @@ function App() {
     return {
       role: suggestedRole,
       location: suggestedLocation,
+      jobType: currentSearch.jobType || DEFAULT_SEARCH.jobType,
     };
   };
 
@@ -166,11 +168,12 @@ function App() {
 
       <div className="container">
         <SearchForm
-          onSearch={(role, location) => searchJobs(role, location, 1)}
+          onSearch={(role, location, jobType) => searchJobs(role, location, 1, null, jobType)}
           onUploadClick={() => setIsResumeModalOpen(true)}
           uploadedResumeName={uploadedResume?.originalName}
           initialRole={currentSearch.role}
           initialLocation={currentSearch.location}
+          initialJobType={currentSearch.jobType}
         />
 
         {uploadedResume?.analysis && (
@@ -241,7 +244,7 @@ function App() {
               <p>Showing page {currentPage} of {totalPages}</p>
               {uploadedResume?.analysis && (
                 <p className="match-mode-note">
-                  Resume-driven search is active: using <strong>{currentSearch.role}</strong> in <strong>{currentSearch.location}</strong>.
+                  Resume-driven search is active: using <strong>{currentSearch.role}</strong> in <strong>{currentSearch.location}</strong> for <strong>{currentSearch.jobType}</strong> roles.
                 </p>
               )}
             </div>
@@ -297,7 +300,7 @@ function App() {
                 setUploadedResume(resume);
                 setIsResumeModalOpen(false);
                 const resumeSearch = getResumeDrivenSearch(resume);
-                searchJobs(resumeSearch.role, resumeSearch.location, 1, resume.analysis);
+                searchJobs(resumeSearch.role, resumeSearch.location, 1, resume.analysis, resumeSearch.jobType);
               }}
             />
           </div>

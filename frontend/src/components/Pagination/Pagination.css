@@ -5,22 +5,22 @@
   }
   
   .page-link {
-    color: #0d6efd;
-    background-color: #fff;
-    border-color: #dee2e6;
+    color: var(--color-slate);
+    background-color: var(--color-surface-strong);
+    border-color: var(--color-border);
     cursor: pointer;
   }
   
   .page-item.active .page-link {
     z-index: 3;
-    color: #fff;
-    background-color: #0d6efd;
-    border-color: #0d6efd;
+    color: var(--color-cream);
+    background-color: var(--color-ink);
+    border-color: var(--color-ink);
   }
   
   .page-item.disabled .page-link {
-    color: #6c757d;
+    color: var(--color-mauve);
     pointer-events: none;
-    background-color: #fff;
-    border-color: #dee2e6;
+    background-color: var(--color-surface-strong);
+    border-color: var(--color-border);
   }

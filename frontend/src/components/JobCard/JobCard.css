@@ -1,11 +1,12 @@
 /* components/JobCard/JobCard.css */
 .job-card {
-    border: none;
+    border: 1px solid rgba(58, 90, 64, 0.18);
     border-radius: 10px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 16px 32px rgba(52, 78, 65, 0.12);
     margin-bottom: 30px;
     transition: transform 0.2s;
     padding: 5px;
+    background: #ffff;
   }
   
   .col-md-6, .col-lg-4 {
@@ -25,7 +26,7 @@
   }
   
 .company {
-  color: #00221C;
+  color: #344e41;
   font-weight: 500;
 }
 
@@ -35,8 +36,8 @@
 }
 
 .match-score-badge {
-  background: #e8f5f3;
-  color: #004369;
+  background: #a3b18a;
+  color: #344e41;
   border-radius: 999px;
   padding: 6px 10px;
   font-size: 0.85rem;
@@ -44,13 +45,29 @@
 }
   
   .location {
-    color: #01949A;
+    color: #3a5a40;
   }
   
   .salary {
     font-weight: bold;
-    color: #198754;
+    color: #588157;
   }
+
+.job-card .card-title {
+  color: #344e41;
+}
+
+.job-card .badge.bg-primary {
+  background-color: #588157 !important;
+  color: #f6f4ee;
+}
+
+.job-card .text-muted,
+.job-description,
+.match-reason-item,
+.job-card small {
+  color: #3a5a40 !important;
+}
   
 .job-description {
   max-height: 100px;
@@ -69,7 +86,6 @@
 
 .match-reason-item {
   font-size: 0.86rem;
-  color: #4f6367;
 }
 
 .job-card-actions {

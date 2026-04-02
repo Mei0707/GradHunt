@@ -3,14 +3,24 @@
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color: #213547;
+  color: #22223b;
   background-color: #ffffff;
+  --color-ink: #22223b;
+  --color-slate: #4a4e69;
+  --color-mauve: #9a8c98;
+  --color-blush: #c9ada7;
+  --color-cream: #f2e9e4;
+  --color-surface: #fffaf7;
+  --color-surface-strong: #ffffff;
+  --color-border: rgba(74, 78, 105, 0.18);
+  --color-shadow: rgba(34, 34, 59, 0.12);
 }
 
 body {
   margin: 0;
   padding: 0;
   min-width: 320px;
+  background: #ffffff;
 }
 
 a {
