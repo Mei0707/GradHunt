@@ -109,38 +109,78 @@ const extractJobsFromPage = async (page, location) => {
       return lines.slice(0, 2).join(' ');
     };
 
-    const cards = Array.from(document.querySelectorAll([
-      'div.job_seen_beacon',
-      'div.jobsearch-ResultsList > div.cardOutline',
-      'div.cardOutline.tapItem',
-      'a.tapItem',
-    ].join(', ')));
-    const candidateCards = cards.length > 0
-      ? cards
-      : Array.from(document.querySelectorAll('a[href*="jk="]'))
-          .map((link) => link.closest('div.job_seen_beacon, div.cardOutline, a.tapItem, li, td, article') || link)
-          .filter(Boolean);
-
-    return candidateCards.map((card, index) => {
-      const text = (selectorList) => {
-        for (const selector of selectorList) {
-          const element = card.querySelector(selector);
-          if (element?.textContent?.trim()) {
-            return element.textContent.trim();
-          }
-        }
+    const extractJobKeyFromHref = (href) => {
+      if (!href) {
         return null;
+      }
+
+      try {
+        const parsedUrl = new URL(href, 'https://www.indeed.com');
+        return parsedUrl.searchParams.get('jk');
+      } catch {
+        const match = href.match(/[?&]jk=([^&]+)/i);
+        return match?.[1] || null;
+      }
+    };
+
+    const textFromRoot = (root, selectorList) => {
+      if (!root) {
+        return null;
+      }
+
+      for (const selector of selectorList) {
+        if (root.matches?.(selector) && root.textContent?.trim()) {
+          return root.textContent.trim();
+        }
+
+        const element = root.querySelector?.(selector);
+        if (element?.textContent?.trim()) {
+          return element.textContent.trim();
+        }
+      }
+      return null;
+    };
+
+    const links = Array.from(document.querySelectorAll('a[href*="jk="], a[href*="/viewjob"]'));
+    const seenJobKeys = new Set();
+    const extractedJobs = [];
+
+    links.forEach((link, index) => {
+      const relativeUrl = link.getAttribute('href');
+      const jobKey =
+        extractJobKeyFromHref(relativeUrl) ||
+        link.getAttribute('data-jk') ||
+        link.closest('[data-jk]')?.getAttribute('data-jk') ||
+        null;
+
+      if (!jobKey || seenJobKeys.has(jobKey)) {
+        return;
+      }
+
+      const card =
+        link.closest('div.job_seen_beacon, div.cardOutline, a.tapItem, li, td, article') ||
+        link.closest('div') ||
+        link;
+
+      const text = (selectorList) => {
+        return textFromRoot(card, selectorList) || textFromRoot(link, selectorList);
       };
 
-      const link = card.querySelector('h2.jobTitle a, h2 a');
-      const relativeUrl = link?.getAttribute('href');
-      const parsedUrl = relativeUrl ? new URL(relativeUrl, 'https://www.indeed.com') : null;
-      const jobId = parsedUrl?.searchParams?.get('jk') || relativeUrl?.split('?')[0]?.split('_')?.pop() || `browser-${Date.now()}-${index}`;
+      const title =
+        text([
+          'h2.jobTitle span',
+          'h2.jobTitle',
+          'h2 span',
+          '[data-testid="job-title"]',
+        ]) ||
+        link.getAttribute('aria-label') ||
+        link.textContent?.replace(/\s+/g, ' ').trim() ||
+        'Unknown Title';
+
       const url = relativeUrl
         ? buildIndeedViewJobUrl(relativeUrl)
         : '#';
 
-      const title = text(['h2.jobTitle span', 'h2.jobTitle', 'h2 span']) || 'Unknown Title';
       const company = text([
         '[data-testid="company-name"]',
         'span.companyName',
@@ -164,8 +204,8 @@ const extractJobsFromPage = async (page, location) => {
         "td.resultContent div[class*='snippet']",
       ]) || buildFallbackDescription(card, [title, company, jobLocation, salary, timePosted]) || 'No description available';
 
-      return {
-        id: `indeed-${jobId}`,
+      extractedJobs.push({
+        id: `indeed-${jobKey}`,
         title,
         company,
         location: jobLocation,
@@ -174,8 +214,12 @@ const extractJobsFromPage = async (page, location) => {
         url,
         time_posted: timePosted,
         source: 'Indeed',
-      };
-    }).filter((job, index, jobs) => {
+      });
+
+      seenJobKeys.add(jobKey);
+    });
+
+    return extractedJobs.filter((job) => {
       if (!job.url || job.url === '#') {
         return false;
       }
@@ -184,7 +228,7 @@ const extractJobsFromPage = async (page, location) => {
         return false;
       }
 
-      return jobs.findIndex((candidate) => candidate.id === job.id) === index;
+      return true;
     });
   }, location);
 };

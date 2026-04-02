@@ -121,6 +121,7 @@ module.exports = {
 
 const jobAggregationService = require('../services/jobAggregationService');
 const { getJobDetails } = require('../services/jobDetailService');
+const AppliedJob = require('../models/AppliedJob');
 
 // controllers/jobController.js
 const searchJobs = async (req, res) => {
@@ -149,6 +150,22 @@ const searchJobs = async (req, res) => {
         resumeProfile,
         jobType
       );
+
+      if (req.user && Array.isArray(jobData.jobs) && jobData.jobs.length > 0) {
+        const appliedJobs = await AppliedJob.find({ user: req.user._id })
+          .select('jobId url')
+          .lean();
+        const appliedJobIds = new Set(appliedJobs.map((job) => job.jobId));
+        const appliedJobUrls = new Set(appliedJobs.map((job) => job.url));
+
+        jobData = {
+          ...jobData,
+          jobs: jobData.jobs.map((job) => ({
+            ...job,
+            isApplied: appliedJobIds.has(job.id) || appliedJobUrls.has(job.url),
+          })),
+        };
+      }
     } catch (error) {
       console.error('Error from job aggregation service:', error);
       // Provide fallback data if the service fails
@@ -170,6 +187,86 @@ const searchJobs = async (req, res) => {
       error: 'Internal server error',
       message: 'An unexpected error occurred while searching for jobs',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+const listAppliedJobs = async (req, res) => {
+  try {
+    const jobs = await AppliedJob.find({ user: req.user._id })
+      .sort({ appliedAt: -1, createdAt: -1 })
+      .lean();
+
+    return res.json({
+      jobs: jobs.map((job) => ({
+        id: job._id.toString(),
+        jobId: job.jobId,
+        title: job.title,
+        company: job.company,
+        location: job.location,
+        description: job.description,
+        url: job.url,
+        source: job.source,
+        appliedAt: job.appliedAt,
+        isApplied: true,
+      })),
+    });
+  } catch (error) {
+    console.error('Error loading applied jobs:', error);
+    return res.status(500).json({
+      error: 'Failed to load applied jobs.',
+      message: 'An unexpected error occurred while loading application history.',
+    });
+  }
+};
+
+const saveAppliedJob = async (req, res) => {
+  try {
+    const job = req.body;
+
+    if (!job?.id || !job?.title || !job?.company || !job?.url) {
+      return res.status(400).json({
+        error: 'Missing job data',
+        message: 'Job id, title, company, and url are required.',
+      });
+    }
+
+    const savedJob = await AppliedJob.findOneAndUpdate(
+      { user: req.user._id, jobId: job.id },
+      {
+        user: req.user._id,
+        jobId: job.id,
+        title: job.title,
+        company: job.company,
+        location: job.location || '',
+        description: job.description || '',
+        url: job.url,
+        source: job.source || 'Unknown',
+        appliedAt: new Date(),
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    return res.status(201).json({
+      message: 'Job saved to your applied history.',
+      job: {
+        id: savedJob._id.toString(),
+        jobId: savedJob.jobId,
+        title: savedJob.title,
+        company: savedJob.company,
+        location: savedJob.location,
+        description: savedJob.description,
+        url: savedJob.url,
+        source: savedJob.source,
+        appliedAt: savedJob.appliedAt,
+        isApplied: true,
+      },
+    });
+  } catch (error) {
+    console.error('Error saving applied job:', error);
+    return res.status(500).json({
+      error: 'Failed to save applied job.',
+      message: 'An unexpected error occurred while saving application history.',
     });
   }
 };
@@ -198,4 +295,6 @@ const fetchJobDetails = async (req, res) => {
 module.exports = {
   searchJobs,
   fetchJobDetails,
+  listAppliedJobs,
+  saveAppliedJob,
 };

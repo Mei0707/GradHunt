@@ -62,6 +62,11 @@
   color: #f6f4ee;
 }
 
+.applied-badge {
+  background-color: #344e41;
+  color: #f6f4ee;
+}
+
 .job-card .text-muted,
 .job-description,
 .match-reason-item,

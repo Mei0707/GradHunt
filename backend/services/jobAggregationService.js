@@ -11,18 +11,11 @@ const buildCacheKey = (role, location, jobType) =>
   `${role.trim().toLowerCase()}::${location.trim().toLowerCase()}::${jobType.trim().toLowerCase()}`;
 
 const INTERNSHIP_PATTERN = /\b(intern|internship|co-?op|apprentice|summer intern|fall intern)\b/i;
-const FULL_TIME_EXCLUSION_PATTERN = /\b(intern|internship|co-?op|contract|temporary|temp|part-time)\b/i;
 
 const filterJobsByType = (jobs, jobType = 'full-time') => {
   if (jobType === 'intern') {
     return jobs.filter((job) =>
       INTERNSHIP_PATTERN.test(`${job.title || ''} ${job.description || ''}`)
-    );
-  }
-
-  if (jobType === 'full-time') {
-    return jobs.filter((job) =>
-      !FULL_TIME_EXCLUSION_PATTERN.test(`${job.title || ''} ${job.description || ''}`)
     );
   }
 

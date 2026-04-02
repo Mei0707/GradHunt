@@ -240,6 +240,36 @@
   justify-content: flex-end;
 }
 
+.apply-modal-card {
+  width: min(560px, 100%);
+}
+
+.apply-modal-actions {
+  gap: 12px;
+}
+
+.applied-history-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.applied-history-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px;
+  border-radius: 12px;
+  background: rgba(201, 173, 167, 0.16);
+  border: 1px solid var(--color-border);
+  color: var(--color-ink);
+}
+
+.applied-history-item span,
+.applied-history-item small {
+  color: var(--color-slate);
+}
+
 @media (max-width: 768px) {
   .header-bar {
     flex-direction: column;
@@ -250,6 +280,10 @@
   }
 
   .resume-analysis-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .applied-history-list {
     grid-template-columns: 1fr;
   }
 

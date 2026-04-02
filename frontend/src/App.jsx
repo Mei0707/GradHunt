@@ -25,6 +25,8 @@ function App() {
   const [authError, setAuthError] = useState(null);
   const [authModalMode, setAuthModalMode] = useState(null);
   const [savedResumes, setSavedResumes] = useState([]);
+  const [appliedJobs, setAppliedJobs] = useState([]);
+  const [applyPromptJob, setApplyPromptJob] = useState(null);
 
   const readJsonResponse = async (response) => {
     const rawText = await response.text();
@@ -55,6 +57,7 @@ function App() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(authState?.token ? { Authorization: `Bearer ${authState.token}` } : {}),
         },
         body: JSON.stringify(payload),
       });
@@ -125,6 +128,31 @@ function App() {
     }
   };
 
+  const fetchAppliedJobs = async (token) => {
+    if (!token) {
+      setAppliedJobs([]);
+      return;
+    }
+
+    try {
+      const response = await fetch('http://localhost:3000/api/jobs/applied', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await readJsonResponse(response);
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to load applied jobs.');
+      }
+
+      setAppliedJobs(data.jobs || []);
+    } catch (error) {
+      console.error('Applied jobs error:', error);
+      setAppliedJobs([]);
+    }
+  };
+
   useEffect(() => {
     const storedAuth = window.localStorage.getItem(AUTH_STORAGE_KEY);
     if (!storedAuth) {
@@ -152,11 +180,13 @@ function App() {
             user: data.user,
           });
           fetchSavedResumes(parsedAuth.token);
+          fetchAppliedJobs(parsedAuth.token);
         })
         .catch(() => {
           window.localStorage.removeItem(AUTH_STORAGE_KEY);
           setAuthState(null);
           setSavedResumes([]);
+          setAppliedJobs([]);
         });
     } catch {
       window.localStorage.removeItem(AUTH_STORAGE_KEY);
@@ -202,6 +232,79 @@ function App() {
     }
   };
 
+  const handleApply = async (job) => {
+    setAuthError(null);
+
+    const applyWindow = window.open(job.url, '_blank');
+    if (!applyWindow || applyWindow.closed) {
+      setAuthError('Your browser blocked the job posting tab. Please allow pop-ups and try again.');
+      return;
+    }
+
+    try {
+      applyWindow.opener = null;
+    } catch {
+      // Some browsers restrict cross-window access here; opening the tab is enough.
+    }
+
+    if (!authState?.token) {
+      setApplyPromptJob({
+        job,
+        mode: 'login',
+      });
+      return;
+    }
+
+    setApplyPromptJob({
+      job,
+      mode: 'confirm',
+    });
+  };
+
+  const saveAppliedJob = async (job) => {
+    try {
+      const response = await fetch('http://localhost:3000/api/jobs/applied', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authState.token}`,
+        },
+        body: JSON.stringify(job),
+      });
+
+      const data = await readJsonResponse(response);
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to save applied job.');
+      }
+
+      setJobs((currentJobs) =>
+        currentJobs.map((currentJob) =>
+          currentJob.id === job.id ? { ...currentJob, isApplied: true } : currentJob
+        )
+      );
+      await fetchAppliedJobs(authState.token);
+    } catch (error) {
+      console.error('Apply tracking error:', error);
+      setAuthError(error.message || 'Failed to save applied job.');
+    }
+  };
+
+  const handleApplyPromptConfirm = async () => {
+    if (!applyPromptJob) {
+      return;
+    }
+
+    if (applyPromptJob.mode === 'login') {
+      setApplyPromptJob(null);
+      setAuthModalMode('login');
+      return;
+    }
+
+    const job = applyPromptJob.job;
+    setApplyPromptJob(null);
+    await saveAppliedJob(job);
+  };
+
   const getResumeDrivenSearch = (resume) => {
     const analysis = resume?.analysis;
     if (!analysis) {
@@ -233,6 +336,7 @@ function App() {
     setAuthModalMode(null);
     window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(nextAuthState));
     fetchSavedResumes(token);
+    fetchAppliedJobs(token);
   };
 
   const handleLogout = () => {
@@ -244,6 +348,7 @@ function App() {
     setAuthState(null);
     setAuthError(null);
     setSavedResumes([]);
+    setAppliedJobs([]);
     window.localStorage.removeItem(AUTH_STORAGE_KEY);
   };
 
@@ -359,7 +464,7 @@ function App() {
             <div className="row">
               {jobs.length > 0 ? (
                 jobs.map(job => (
-                  <JobCard key={job.id} job={job} onViewDetails={handleViewJobDetails} />
+                  <JobCard key={job.id} job={job} onViewDetails={handleViewJobDetails} onApply={handleApply} />
                 ))
               ) : (
                 <div className="col-12">
@@ -377,6 +482,33 @@ function App() {
                 totalPages={totalPages}
                 onPageChange={handlePageChange}
               />
+            )}
+
+            {authState?.user && appliedJobs.length > 0 && (
+              <div className="resume-analysis-card">
+                <div className="resume-analysis-header">
+                  <div>
+                    <h2>Applied Job History</h2>
+                    <p>Your recent jobs marked as applied.</p>
+                  </div>
+                  <div className="resume-analysis-level">{appliedJobs.length} saved</div>
+                </div>
+                <div className="applied-history-list">
+                  {appliedJobs.slice(0, 6).map((job) => (
+                    <a
+                      key={job.id}
+                      className="applied-history-item"
+                      href={job.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <strong>{job.title}</strong>
+                      <span>{job.company} · {job.location}</span>
+                      <small>Applied {new Date(job.appliedAt).toLocaleDateString()}</small>
+                    </a>
+                  ))}
+                </div>
+              </div>
             )}
           </>
         )}
@@ -414,6 +546,53 @@ function App() {
                 searchJobs(resumeSearch.role, resumeSearch.location, 1, resume.analysis, resumeSearch.jobType);
               }}
             />
+          </div>
+        </div>
+      )}
+
+      {applyPromptJob && (
+        <div className="resume-modal-backdrop" onClick={() => setApplyPromptJob(null)}>
+          <div
+            className="resume-modal-card apply-modal-card"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="resume-modal-header">
+              <div>
+                <h2>{applyPromptJob.mode === 'login' ? 'Track Applications' : 'Mark Job As Applied'}</h2>
+                <p>
+                  {applyPromptJob.mode === 'login'
+                    ? 'You opened the job posting. Log in if you want GradHunt to save this job to your application history.'
+                    : `Did you apply to ${applyPromptJob.job.title} at ${applyPromptJob.job.company}?`}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="resume-modal-close"
+                onClick={() => setApplyPromptJob(null)}
+                aria-label="Close apply prompt"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="job-details-body">
+              <div className="job-details-footer apply-modal-actions">
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary"
+                  onClick={() => setApplyPromptJob(null)}
+                >
+                  {applyPromptJob.mode === 'login' ? 'Maybe later' : 'Not yet'}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={handleApplyPromptConfirm}
+                >
+                  {applyPromptJob.mode === 'login' ? 'Log in' : 'Yes, save it'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

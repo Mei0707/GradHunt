@@ -1,7 +1,7 @@
 // components/JobCard/JobCard.jsx
 import './JobCard.css';
 
-function JobCard({ job, onViewDetails }) {
+function JobCard({ job, onViewDetails, onApply }) {
   // Format salary if available
   let salaryText = '';
   if (job.salary_min && job.salary_max) {
@@ -31,6 +31,7 @@ function JobCard({ job, onViewDetails }) {
   const applicantsInfo = job.num_applicants || '';
   const matchScore = typeof job.matchScore === 'number' ? job.matchScore : null;
   const matchReasons = Array.isArray(job.matchReasons) ? job.matchReasons : [];
+  const isApplied = Boolean(job.isApplied);
 
   return (
     <div className="col-md-6 col-lg-4">
@@ -48,6 +49,7 @@ function JobCard({ job, onViewDetails }) {
           {/* Source badge */}
           <div className="source mb-3">
             <span className="badge bg-primary">{job.source || 'Job Board'}</span>
+            {isApplied && <span className="badge applied-badge ms-2">Already applied</span>}
           </div>
           
           {/* Time posted */}
@@ -86,9 +88,13 @@ function JobCard({ job, onViewDetails }) {
               >
                 View details
               </button>
-              <a href={job.url} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline-primary">
-                Apply
-              </a>
+              <button
+                type="button"
+                className={`btn btn-sm ${isApplied ? 'btn-success' : 'btn-outline-primary'}`}
+                onClick={() => onApply(job)}
+              >
+                {isApplied ? 'Applied' : 'Apply'}
+              </button>
             </div>
           </div>
         </div>
