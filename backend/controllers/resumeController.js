@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { analyzeStoredResume } = require('../services/resumeAnalysisService');
 
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_EXTENSIONS = new Set(['.pdf', '.doc', '.docx', '.txt']);
@@ -76,6 +77,34 @@ const uploadResume = async (req, res) => {
   }
 };
 
+const analyzeResume = async (req, res) => {
+  try {
+    const { storedFileName } = req.body;
+
+    if (!storedFileName) {
+      return res.status(400).json({
+        error: 'Missing storedFileName',
+        message: 'storedFileName is required to analyze an uploaded resume.',
+      });
+    }
+
+    const result = await analyzeStoredResume(storedFileName);
+    res.json({
+      message: 'Resume analyzed successfully.',
+      ...result,
+    });
+  } catch (error) {
+    console.error('Error analyzing resume:', error);
+    const statusCode = error.message.includes('OPENAI_API_KEY') ? 503 : 500;
+
+    res.status(statusCode).json({
+      error: 'Failed to analyze resume',
+      message: error.message || 'An unexpected error occurred while analyzing the resume.',
+    });
+  }
+};
+
 module.exports = {
   uploadResume,
+  analyzeResume,
 };

@@ -28,6 +28,69 @@
   height: 200px;
 }
 
+.resume-analysis-card {
+  background: white;
+  border-radius: 12px;
+  padding: 22px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.08);
+  margin-bottom: 26px;
+}
+
+.resume-analysis-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.resume-analysis-header h2 {
+  margin: 0 0 6px;
+  color: #00221C;
+  font-size: 1.3rem;
+}
+
+.resume-analysis-header p {
+  margin: 0;
+  color: #4f6367;
+}
+
+.resume-analysis-level {
+  background: #e8f5f3;
+  color: #004369;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-weight: 600;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.resume-analysis-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.resume-analysis-grid h3 {
+  font-size: 0.98rem;
+  margin-bottom: 10px;
+  color: #00221C;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.analysis-tag {
+  background: #f1f6f8;
+  color: #004369;
+  border-radius: 999px;
+  padding: 7px 10px;
+  font-size: 0.9rem;
+}
+
 .resume-modal-backdrop {
   position: fixed;
   inset: 0;
@@ -76,6 +139,14 @@
 }
 
 @media (max-width: 768px) {
+  .resume-analysis-header {
+    flex-direction: column;
+  }
+
+  .resume-analysis-grid {
+    grid-template-columns: 1fr;
+  }
+
   .resume-modal-backdrop {
     align-items: flex-end;
     padding: 0;

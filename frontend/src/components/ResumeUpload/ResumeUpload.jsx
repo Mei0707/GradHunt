@@ -16,6 +16,7 @@ const readFileAsBase64 = (file) =>
 function ResumeUpload({ onUploadSuccess }) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
@@ -57,15 +58,38 @@ function ResumeUpload({ onUploadSuccess }) {
         throw new Error(data.message || 'Upload failed.');
       }
 
-      setSuccessMessage(`${data.resume.originalName} uploaded successfully.`);
+      setSuccessMessage(`${data.resume.originalName} uploaded successfully. Running AI analysis...`);
+      setIsAnalyzing(true);
+
+      const analysisResponse = await fetch('http://localhost:3000/api/resume/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          storedFileName: data.resume.storedFileName,
+        }),
+      });
+
+      const analysisData = await analysisResponse.json();
+      if (!analysisResponse.ok) {
+        throw new Error(analysisData.message || 'Resume analysis failed.');
+      }
+
+      setSuccessMessage(`${data.resume.originalName} uploaded and analyzed successfully.`);
       if (onUploadSuccess) {
-        onUploadSuccess(data.resume);
+        onUploadSuccess({
+          ...data.resume,
+          analysis: analysisData.analysis,
+          extractedTextPreview: analysisData.extractedTextPreview,
+        });
       }
     } catch (uploadError) {
       console.error('Resume upload failed:', uploadError);
       setError(uploadError.message || 'Failed to upload resume.');
     } finally {
       setIsUploading(false);
+      setIsAnalyzing(false);
     }
   };
 
@@ -90,8 +114,8 @@ function ResumeUpload({ onUploadSuccess }) {
         </div>
 
         <div className="col-md-4 d-flex align-items-end">
-          <button type="submit" className="btn btn-primary w-100" disabled={isUploading}>
-            {isUploading ? 'Uploading...' : 'Upload Resume'}
+          <button type="submit" className="btn btn-primary w-100" disabled={isUploading || isAnalyzing}>
+            {isUploading ? 'Uploading...' : isAnalyzing ? 'Analyzing...' : 'Upload Resume'}
           </button>
         </div>
       </form>

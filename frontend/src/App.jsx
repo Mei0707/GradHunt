@@ -82,6 +82,56 @@ function App() {
           uploadedResumeName={uploadedResume?.originalName}
         />
 
+        {uploadedResume?.analysis && (
+          <div className="resume-analysis-card">
+            <div className="resume-analysis-header">
+              <div>
+                <h2>AI Resume Snapshot</h2>
+                <p>{uploadedResume.analysis.candidate_summary}</p>
+              </div>
+              <div className="resume-analysis-level">{uploadedResume.analysis.experience_level}</div>
+            </div>
+
+            <div className="resume-analysis-grid">
+              <div>
+                <h3>Target Roles</h3>
+                <div className="tag-list">
+                  {uploadedResume.analysis.target_roles.map((item) => (
+                    <span key={item} className="analysis-tag">{item}</span>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h3>Skills</h3>
+                <div className="tag-list">
+                  {uploadedResume.analysis.skills.map((item) => (
+                    <span key={item} className="analysis-tag">{item}</span>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h3>Tools & Frameworks</h3>
+                <div className="tag-list">
+                  {uploadedResume.analysis.tools_and_frameworks.map((item) => (
+                    <span key={item} className="analysis-tag">{item}</span>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h3>Suggested Search Keywords</h3>
+                <div className="tag-list">
+                  {uploadedResume.analysis.suggested_search_keywords.map((item) => (
+                    <span key={item} className="analysis-tag">{item}</span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {isLoading ? (
           <div className="loading">
             <div className="spinner-border text-primary" role="status">
