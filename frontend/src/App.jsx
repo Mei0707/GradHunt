@@ -6,13 +6,14 @@ import Pagination from "./components/Pagination/Pagination";
 import ResumeUpload from './components/ResumeUpload/ResumeUpload';
 
 function App() {
+  const DEFAULT_SEARCH = { role: 'software intern', location: 'New York' };
   const [jobs, setJobs] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [count, setCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [currentSearch, setCurrentSearch] = useState({ role: 'software intern', location: 'New York' });
+  const [currentSearch, setCurrentSearch] = useState(DEFAULT_SEARCH);
   const [uploadedResume, setUploadedResume] = useState(null);
   const [isResumeModalOpen, setIsResumeModalOpen] = useState(false);
 
@@ -73,8 +74,31 @@ function App() {
 
   useEffect(() => {
     // Initial search
-    searchJobs('software intern', 'New York');
+    searchJobs(DEFAULT_SEARCH.role, DEFAULT_SEARCH.location);
   }, []);
+
+  const getResumeDrivenSearch = (resume) => {
+    const analysis = resume?.analysis;
+    if (!analysis) {
+      return currentSearch;
+    }
+
+    const suggestedRole =
+      analysis.suggested_search_keywords?.[0] ||
+      analysis.target_roles?.[0] ||
+      currentSearch.role ||
+      DEFAULT_SEARCH.role;
+
+    const suggestedLocation =
+      analysis.preferred_locations?.find(Boolean) ||
+      currentSearch.location ||
+      DEFAULT_SEARCH.location;
+
+    return {
+      role: suggestedRole,
+      location: suggestedLocation,
+    };
+  };
 
   return (
     <div className="app-container">
@@ -90,6 +114,8 @@ function App() {
           onSearch={(role, location) => searchJobs(role, location, 1)}
           onUploadClick={() => setIsResumeModalOpen(true)}
           uploadedResumeName={uploadedResume?.originalName}
+          initialRole={currentSearch.role}
+          initialLocation={currentSearch.location}
         />
 
         {uploadedResume?.analysis && (
@@ -159,7 +185,9 @@ function App() {
               <h2>Found {count} jobs from company career sites</h2>
               <p>Showing page {currentPage} of {totalPages}</p>
               {uploadedResume?.analysis && (
-                <p className="match-mode-note">Resume-aware ranking is active for this search.</p>
+                <p className="match-mode-note">
+                  Resume-driven search is active: using <strong>{currentSearch.role}</strong> in <strong>{currentSearch.location}</strong>.
+                </p>
               )}
             </div>
             <div className="row">
@@ -213,7 +241,8 @@ function App() {
               onUploadSuccess={(resume) => {
                 setUploadedResume(resume);
                 setIsResumeModalOpen(false);
-                searchJobs(currentSearch.role, currentSearch.location, 1, resume.analysis);
+                const resumeSearch = getResumeDrivenSearch(resume);
+                searchJobs(resumeSearch.role, resumeSearch.location, 1, resume.analysis);
               }}
             />
           </div>

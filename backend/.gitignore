@@ -1,1 +1,8 @@
 .env
+.env.*
+node_modules/
+uploads/
+*.log
+.DS_Store
+indeed_jobs.json
+linkedin_jobs.json

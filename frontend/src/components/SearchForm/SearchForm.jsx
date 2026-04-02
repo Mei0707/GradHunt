@@ -1,10 +1,18 @@
 // components/SearchForm/SearchForm.jsx
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import './SearchForm.css';
 
-function SearchForm({ onSearch, onUploadClick, uploadedResumeName }) {
-  const [role, setRole] = useState('software intern');
-  const [location, setLocation] = useState('New York');
+function SearchForm({ onSearch, onUploadClick, uploadedResumeName, initialRole = 'software intern', initialLocation = 'New York' }) {
+  const [role, setRole] = useState(initialRole);
+  const [location, setLocation] = useState(initialLocation);
+
+  useEffect(() => {
+    setRole(initialRole);
+  }, [initialRole]);
+
+  useEffect(() => {
+    setLocation(initialLocation);
+  }, [initialLocation]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
