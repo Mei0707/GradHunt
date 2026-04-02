@@ -2,7 +2,7 @@
 const { scrapeAllCompanyJobs } = require('./scrapers/companyScrapers');
 const { rankJobsForResume } = require('./jobMatchingService');
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 18;
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const EMPTY_CACHE_TTL_MS = 30 * 1000;
 const jobSearchCache = new Map();
