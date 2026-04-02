@@ -5,6 +5,8 @@ import json
 import time
 import sys
 
+REQUEST_TIMEOUT_SECONDS = 15
+
 def scrape_linkedin_jobs(title, location, num_jobs=25):
     """
     Scrape LinkedIn jobs for a specific title and location
@@ -25,7 +27,7 @@ def scrape_linkedin_jobs(title, location, num_jobs=25):
         }
         
         print(f"Requesting: {list_url}")
-        response = requests.get(list_url, headers=headers)
+        response = requests.get(list_url, headers=headers, timeout=REQUEST_TIMEOUT_SECONDS)
         
         # Check if request was successful
         if response.status_code != 200:
@@ -59,10 +61,10 @@ def scrape_linkedin_jobs(title, location, num_jobs=25):
             try:
                 job_url = f"https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/{job_id}"
                 
-                # Add a small delay to avoid rate limiting
-                time.sleep(random.uniform(1, 3))
+                # Keep a short delay to reduce blocking without making the scrape too slow.
+                time.sleep(random.uniform(0.2, 0.6))
                 
-                job_response = requests.get(job_url, headers=headers)
+                job_response = requests.get(job_url, headers=headers, timeout=REQUEST_TIMEOUT_SECONDS)
                 
                 if job_response.status_code != 200:
                     print(f"Failed to fetch job {job_id}: Status code {job_response.status_code}")
@@ -138,9 +140,6 @@ if __name__ == "__main__":
     num_jobs = int(sys.argv[3]) if len(sys.argv) > 3 else 25
     
     jobs = scrape_linkedin_jobs(title, location, num_jobs)
-    
-    # Print results as JSON for easy parsing
-    print(json.dumps(jobs, indent=2))
     
     # Save results to a file
     with open("linkedin_jobs.json", "w") as f:

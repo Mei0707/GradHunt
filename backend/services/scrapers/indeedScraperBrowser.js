@@ -1,6 +1,14 @@
 const { chromium } = require('playwright');
 
 const DEFAULT_TIMEOUT_MS = 30000;
+const MAX_ENRICHED_JOBS_PER_PAGE = 3;
+const ENRICHMENT_TIMEOUT_MS = 8000;
+const RESULTS_SELECTOR = [
+  'div.job_seen_beacon',
+  'div.jobsearch-ResultsList > div.cardOutline',
+  'div.cardOutline.tapItem',
+  'a.tapItem',
+].join(', ');
 
 const compactText = (value) => value?.replace(/\s+/g, ' ').trim() || null;
 
@@ -13,6 +21,16 @@ const normalizeDescription = (value) => {
   return text.length > 300 ? `${text.slice(0, 300)}...` : text;
 };
 
+const withTimeout = (task, timeoutMs) =>
+  Promise.race([
+    task,
+    new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(new Error(`Operation timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
+    }),
+  ]);
+
 const extractJobsFromPage = async (page, location) => {
   return page.evaluate((fallbackLocation) => {
     const normalizeDescription = (value) => {
@@ -24,9 +42,86 @@ const extractJobsFromPage = async (page, location) => {
       return text.length > 300 ? `${text.slice(0, 300)}...` : text;
     };
 
-    const cards = Array.from(document.querySelectorAll('div.job_seen_beacon, div.jobsearch-ResultsList > div.cardOutline'));
+    const buildIndeedViewJobUrl = (href) => {
+      if (!href) {
+        return '#';
+      }
 
-    return cards.map((card, index) => {
+      try {
+        const parsedUrl = new URL(href, 'https://www.indeed.com');
+        const jobKey = parsedUrl.searchParams.get('jk');
+
+        if (jobKey) {
+          return `https://www.indeed.com/viewjob?jk=${jobKey}&from=serp&vjs=3`;
+        }
+
+        return parsedUrl.toString();
+      } catch {
+        return '#';
+      }
+    };
+
+    const buildFallbackDescription = (card, ignoredValues = []) => {
+      const ignored = new Set(
+        ignoredValues
+          .filter(Boolean)
+          .map((value) => value.replace(/\s+/g, ' ').trim().toLowerCase())
+      );
+
+      const lines = (card.innerText || '')
+        .split('\n')
+        .map((line) => line.replace(/\s+/g, ' ').trim())
+        .filter(Boolean)
+        .filter((line) => {
+          const normalized = line.toLowerCase();
+          if (!normalized) {
+            return false;
+          }
+
+          if (ignored.has(normalized)) {
+            return false;
+          }
+
+          if (
+            normalized === 'easily apply' ||
+            normalized === 'just posted' ||
+            normalized === 'today' ||
+            normalized === 'active today'
+          ) {
+            return false;
+          }
+
+          if (/^\d+\+?\s*days ago$/.test(normalized) || /^\d+\+?\s*hours ago$/.test(normalized)) {
+            return false;
+          }
+
+          if (/^\$[\d,]+/.test(line) || /^from \$[\d,]+/i.test(line) || /^pay:/i.test(line)) {
+            return false;
+          }
+
+          return true;
+        });
+
+      if (lines.length === 0) {
+        return null;
+      }
+
+      return lines.slice(0, 2).join(' ');
+    };
+
+    const cards = Array.from(document.querySelectorAll([
+      'div.job_seen_beacon',
+      'div.jobsearch-ResultsList > div.cardOutline',
+      'div.cardOutline.tapItem',
+      'a.tapItem',
+    ].join(', ')));
+    const candidateCards = cards.length > 0
+      ? cards
+      : Array.from(document.querySelectorAll('a[href*="jk="]'))
+          .map((link) => link.closest('div.job_seen_beacon, div.cardOutline, a.tapItem, li, td, article') || link)
+          .filter(Boolean);
+
+    return candidateCards.map((card, index) => {
       const text = (selectorList) => {
         for (const selector of selectorList) {
           const element = card.querySelector(selector);
@@ -39,51 +134,69 @@ const extractJobsFromPage = async (page, location) => {
 
       const link = card.querySelector('h2.jobTitle a, h2 a');
       const relativeUrl = link?.getAttribute('href');
+      const parsedUrl = relativeUrl ? new URL(relativeUrl, 'https://www.indeed.com') : null;
+      const jobId = parsedUrl?.searchParams?.get('jk') || relativeUrl?.split('?')[0]?.split('_')?.pop() || `browser-${Date.now()}-${index}`;
       const url = relativeUrl
-        ? new URL(relativeUrl, 'https://www.indeed.com').toString()
+        ? buildIndeedViewJobUrl(relativeUrl)
         : '#';
 
-      const idMatch = relativeUrl?.match(/clk\?jk=([^&]+)/);
-      const jobId = idMatch?.[1] || relativeUrl?.split('?')[0]?.split('_')?.pop() || `browser-${Date.now()}-${index}`;
+      const title = text(['h2.jobTitle span', 'h2.jobTitle', 'h2 span']) || 'Unknown Title';
+      const company = text([
+        '[data-testid="company-name"]',
+        'span.companyName',
+        'div.company_location [data-testid="company-name"]',
+        'div.company_location span.companyName',
+        'div.company span',
+      ]) || 'Unknown Company';
+      const jobLocation = text([
+        '[data-testid="text-location"]',
+        'div.companyLocation',
+        'div.company_location .companyLocation',
+        'div.location',
+      ]) || fallbackLocation;
+      const salary = text(['div.salary-snippet-container', 'div.salarySnippet', 'span.salaryText']) || 'Salary not specified';
+      const timePosted = text(['span.date', 'div.result-footer span.date', 'table.jobCardShelfContainer div.result-footer span.date']) || 'Recently';
 
       const description = text([
         '[data-testid="job-snippet"]',
         'div.job-snippet',
         'div.summary',
-        'ul',
-        'li',
         "td.resultContent div[class*='snippet']",
-      ]) || 'No description available';
+      ]) || buildFallbackDescription(card, [title, company, jobLocation, salary, timePosted]) || 'No description available';
 
       return {
         id: `indeed-${jobId}`,
-        title: text(['h2.jobTitle span', 'h2.jobTitle', 'h2 span']) || 'Unknown Title',
-        company: text([
-          '[data-testid="company-name"]',
-          'span.companyName',
-          'div.company_location [data-testid="company-name"]',
-          'div.company_location span.companyName',
-          'div.company span',
-        ]) || 'Unknown Company',
-        location: text([
-          '[data-testid="text-location"]',
-          'div.companyLocation',
-          'div.company_location .companyLocation',
-          'div.location',
-        ]) || fallbackLocation,
+        title,
+        company,
+        location: jobLocation,
         description: normalizeDescription(description),
-        salary: text(['div.salary-snippet-container', 'div.salarySnippet', 'span.salaryText']) || 'Salary not specified',
+        salary,
         url,
-        time_posted: text(['span.date', 'div.result-footer span.date', 'table.jobCardShelfContainer div.result-footer span.date']) || 'Recently',
+        time_posted: timePosted,
         source: 'Indeed',
       };
+    }).filter((job, index, jobs) => {
+      if (!job.url || job.url === '#') {
+        return false;
+      }
+
+      if (job.title === 'Unknown Title') {
+        return false;
+      }
+
+      return jobs.findIndex((candidate) => candidate.id === job.id) === index;
     });
   }, location);
 };
 
-const extractJobDetails = async (page, job, fallbackLocation) => {
+const extractJobDetails = async (detailPage, job, fallbackLocation, refererUrl = 'https://www.indeed.com/') => {
   try {
-    const response = await page.goto(job.url, { waitUntil: 'domcontentloaded' });
+    await detailPage.setExtraHTTPHeaders({
+      referer: refererUrl,
+      'accept-language': 'en-US,en;q=0.9',
+    });
+
+    const response = await detailPage.goto(job.url, { waitUntil: 'domcontentloaded', timeout: 5000 });
     const status = response?.status();
     console.log(`Indeed detail response status for ${job.id}: ${status}`);
 
@@ -91,10 +204,10 @@ const extractJobDetails = async (page, job, fallbackLocation) => {
       return null;
     }
 
-    await page.waitForLoadState('networkidle').catch(() => {});
-    await page.waitForTimeout(1000);
+    await detailPage.waitForLoadState('networkidle').catch(() => {});
+    await detailPage.waitForTimeout(800);
 
-    return page.evaluate((location) => {
+    return detailPage.evaluate((location) => {
       const text = (selectorList) => {
         for (const selector of selectorList) {
           const element = document.querySelector(selector);
@@ -130,26 +243,79 @@ const extractJobDetails = async (page, job, fallbackLocation) => {
   }
 };
 
-const enrichJobsWithDetails = async (context, jobs, location) => {
-  const detailPage = await context.newPage();
-  detailPage.setDefaultTimeout(DEFAULT_TIMEOUT_MS);
+const enrichJobsWithDetailsFromResultsPage = async (page, detailPage, jobs, location, refererUrl) => {
+  const cards = page.locator(RESULTS_SELECTOR);
 
   try {
     const enrichedJobs = [];
+    let enrichedCount = 0;
 
-    for (const job of jobs) {
+    for (const [index, job] of jobs.entries()) {
       const needsDetail =
         !job.company ||
         job.company === 'Unknown Company' ||
         !job.description ||
-        job.description === 'No description available';
+        job.description === 'No description available' ||
+        /^job types?:/i.test(job.description) ||
+        /^pay:/i.test(job.description) ||
+        /^from \$?\d/i.test(job.description);
 
-      if (!needsDetail || !job.url || job.url === '#') {
+      if (!needsDetail || !job.url || job.url === '#' || enrichedCount >= MAX_ENRICHED_JOBS_PER_PAGE) {
         enrichedJobs.push(job);
         continue;
       }
 
-      const details = await extractJobDetails(detailPage, job, location);
+      let details = null;
+      const jobKey = job.id.replace(/^indeed-/, '');
+
+      try {
+        const matchingLink = page.locator(`a[href*="jk=${jobKey}"]`).first();
+        const card = cards.nth(index);
+
+        await matchingLink.scrollIntoViewIfNeeded().catch(() => {});
+        await card.scrollIntoViewIfNeeded().catch(() => {});
+
+        await matchingLink.click({ force: true, timeout: 2000 }).catch(async () => {
+          await card.click({ force: true, timeout: 2000 });
+        });
+        await page.waitForTimeout(1500);
+
+        details = await page.evaluate((fallbackLocationForEval) => {
+          const pick = (selectorList) => {
+            for (const selector of selectorList) {
+              const element = document.querySelector(selector);
+              if (element?.textContent?.trim()) {
+                return element.textContent.replace(/\s+/g, ' ').trim();
+              }
+            }
+            return null;
+          };
+
+          const descriptionRoot = document.querySelector('#jobDescriptionText, [data-testid="jobsearch-JobComponent-description"], .jobsearch-JobComponent-description');
+          const description = descriptionRoot?.textContent?.replace(/\s+/g, ' ').trim() || null;
+
+          return {
+            company: pick([
+              '[data-testid="inlineHeader-companyName"]',
+              '[data-testid="company-name"]',
+              '.jobsearch-CompanyInfoContainer a',
+              '.jobsearch-InlineCompanyRating div:first-child',
+            ]),
+            location: pick([
+              '[data-testid="inlineHeader-companyLocation"]',
+              '[data-testid="job-location"]',
+              '.jobsearch-JobInfoHeader-subtitle div:last-child',
+            ]) || fallbackLocationForEval,
+            description,
+          };
+        }, location);
+      } catch (error) {
+        console.warn(`Skipped results-page enrichment for Indeed job ${job.id}: ${error.message}`);
+      }
+
+      if (!details?.description) {
+        details = await extractJobDetails(detailPage, job, location, refererUrl);
+      }
 
       const mergedDescription = compactText(details?.description);
       const mergedCompany = compactText(details?.company);
@@ -161,11 +327,12 @@ const enrichJobsWithDetails = async (context, jobs, location) => {
         location: mergedLocation || job.location,
         description: normalizeDescription(mergedDescription || job.description),
       });
+      enrichedCount += 1;
     }
 
     return enrichedJobs;
   } finally {
-    await detailPage.close();
+    // no-op
   }
 };
 
@@ -182,7 +349,9 @@ const scrapeIndeedJobsBrowser = async (title, location, numJobs = 50) => {
     });
 
     const page = await context.newPage();
+    const detailPage = await context.newPage();
     page.setDefaultTimeout(DEFAULT_TIMEOUT_MS);
+    detailPage.setDefaultTimeout(DEFAULT_TIMEOUT_MS);
 
     let pageIndex = 0;
 
@@ -205,16 +374,33 @@ const scrapeIndeedJobsBrowser = async (title, location, numJobs = 50) => {
       }
 
       await page.waitForLoadState('networkidle').catch(() => {});
+      await page.waitForSelector(RESULTS_SELECTOR, { timeout: 6000 }).catch(() => {});
       await page.waitForTimeout(1500);
 
       const jobsOnPage = await extractJobsFromPage(page, location);
       console.log(`Indeed browser scraper found ${jobsOnPage.length} jobs on page ${pageIndex + 1}`);
 
       if (jobsOnPage.length === 0) {
+        const pageSignals = await page.evaluate(() => ({
+          title: document.title,
+          hasCaptchaText: /verify you are human|unusual traffic|security check/i.test(document.body?.innerText || ''),
+          bodyPreview: (document.body?.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 250),
+        })).catch(() => null);
+
+        console.warn(`Indeed returned no cards on page ${pageIndex + 1}.`, pageSignals);
         break;
       }
 
-      const enrichedJobsOnPage = await enrichJobsWithDetails(context, jobsOnPage, location);
+      let enrichedJobsOnPage = jobsOnPage;
+
+      try {
+        enrichedJobsOnPage = await withTimeout(
+          enrichJobsWithDetailsFromResultsPage(page, detailPage, jobsOnPage, location, url),
+          ENRICHMENT_TIMEOUT_MS
+        );
+      } catch (error) {
+        console.warn(`Indeed enrichment timed out or failed on page ${pageIndex + 1}: ${error.message}. Returning base jobs from search results.`);
+      }
 
       for (const job of enrichedJobsOnPage) {
         if (!allJobs.find((existingJob) => existingJob.id === job.id)) {

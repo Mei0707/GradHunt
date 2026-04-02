@@ -120,6 +120,7 @@ module.exports = {
 **/
 
 const jobAggregationService = require('../services/jobAggregationService');
+const { getJobDetails } = require('../services/jobDetailService');
 
 // controllers/jobController.js
 const searchJobs = async (req, res) => {
@@ -166,6 +167,28 @@ const searchJobs = async (req, res) => {
   }
 };
 
+const fetchJobDetails = async (req, res) => {
+  try {
+    const job = req.body;
+
+    if (!job?.url) {
+      return res.status(400).json({
+        error: 'Job URL is required to fetch details.',
+      });
+    }
+
+    const details = await getJobDetails(job);
+    return res.json(details);
+  } catch (error) {
+    console.error('Error fetching job details:', error);
+    return res.status(500).json({
+      error: 'Failed to load job details.',
+      message: error.message,
+    });
+  }
+};
+
 module.exports = {
-  searchJobs
+  searchJobs,
+  fetchJobDetails,
 };

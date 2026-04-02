@@ -1,7 +1,7 @@
 // components/JobCard/JobCard.jsx
 import './JobCard.css';
 
-function JobCard({ job }) {
+function JobCard({ job, onViewDetails }) {
   // Format salary if available
   let salaryText = '';
   if (job.salary_min && job.salary_max) {
@@ -76,11 +76,20 @@ function JobCard({ job }) {
             </div>
           )}
           
-          <div className="d-flex justify-content-between align-items-center mt-4">
+          <div className="job-card-actions mt-4">
             <small className="text-muted">Source: {job.source}</small>
-            <a href={job.url} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline-primary">
-              Apply
-            </a>
+            <div className="job-card-button-row">
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary"
+                onClick={() => onViewDetails(job)}
+              >
+                View details
+              </button>
+              <a href={job.url} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline-primary">
+                Apply
+              </a>
+            </div>
           </div>
         </div>
       </div>

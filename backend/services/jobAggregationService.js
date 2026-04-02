@@ -4,6 +4,7 @@ const { rankJobsForResume } = require('./jobMatchingService');
 
 const PAGE_SIZE = 20;
 const CACHE_TTL_MS = 10 * 60 * 1000;
+const EMPTY_CACHE_TTL_MS = 30 * 1000;
 const jobSearchCache = new Map();
 
 const buildCacheKey = (role, location) => `${role.trim().toLowerCase()}::${location.trim().toLowerCase()}`;
@@ -43,8 +44,14 @@ const getCachedJobs = async (role, location) => {
 
     jobSearchCache.set(cacheKey, {
       jobs: scrapedJobs,
-      expiresAt: Date.now() + CACHE_TTL_MS,
+      expiresAt: Date.now() + (scrapedJobs.length > 0 ? CACHE_TTL_MS : EMPTY_CACHE_TTL_MS),
     });
+
+    console.log(
+      `Cached ${scrapedJobs.length} jobs for ${role} in ${location} for ${
+        scrapedJobs.length > 0 ? CACHE_TTL_MS : EMPTY_CACHE_TTL_MS
+      }ms`
+    );
 
     return scrapedJobs;
   })();

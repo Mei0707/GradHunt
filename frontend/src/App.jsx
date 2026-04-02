@@ -16,6 +16,18 @@ function App() {
   const [currentSearch, setCurrentSearch] = useState(DEFAULT_SEARCH);
   const [uploadedResume, setUploadedResume] = useState(null);
   const [isResumeModalOpen, setIsResumeModalOpen] = useState(false);
+  const [selectedJob, setSelectedJob] = useState(null);
+  const [isJobDetailsLoading, setIsJobDetailsLoading] = useState(false);
+  const [jobDetailsError, setJobDetailsError] = useState(null);
+
+  const readJsonResponse = async (response) => {
+    const rawText = await response.text();
+    try {
+      return rawText ? JSON.parse(rawText) : {};
+    } catch (error) {
+      throw new Error(`The backend returned an invalid response (${response.status}).`);
+    }
+  };
 
   const searchJobs = async (role, location, page = 1, resumeProfileOverride = null) => {
     setIsLoading(true);
@@ -56,7 +68,11 @@ function App() {
       setCurrentSearch({ role, location });
     } catch (error) {
       console.error('Search error:', error);
-      setError(error.message);
+      if (error instanceof TypeError && error.message === 'Failed to fetch') {
+        setError('Could not reach the backend at http://localhost:3000. Please make sure the backend is running and then try again.');
+      } else {
+        setError(error.message);
+      }
       setJobs([]);
     } finally {
       setIsLoading(false);
@@ -76,6 +92,45 @@ function App() {
     // Initial search
     searchJobs(DEFAULT_SEARCH.role, DEFAULT_SEARCH.location);
   }, []);
+
+  const handleViewJobDetails = async (job) => {
+    setSelectedJob({
+      ...job,
+      overview: job.description || 'No description available',
+      fullDescription: job.description || 'No description available',
+      aiSummary: null,
+    });
+    setJobDetailsError(null);
+
+    if (job.source !== 'Indeed') {
+      return;
+    }
+
+    setIsJobDetailsLoading(true);
+
+    try {
+      const response = await fetch('http://localhost:3000/api/jobs/details', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(job),
+      });
+
+      const data = await readJsonResponse(response);
+
+      if (!response.ok) {
+        throw new Error(data.message || data.error || `API error: ${response.status}`);
+      }
+
+      setSelectedJob(data);
+    } catch (error) {
+      console.error('Job details error:', error);
+      setJobDetailsError(error.message);
+    } finally {
+      setIsJobDetailsLoading(false);
+    }
+  };
 
   const getResumeDrivenSearch = (resume) => {
     const analysis = resume?.analysis;
@@ -193,7 +248,7 @@ function App() {
             <div className="row">
               {jobs.length > 0 ? (
                 jobs.map(job => (
-                  <JobCard key={job.id} job={job} />
+                  <JobCard key={job.id} job={job} onViewDetails={handleViewJobDetails} />
                 ))
               ) : (
                 <div className="col-12">
@@ -245,6 +300,65 @@ function App() {
                 searchJobs(resumeSearch.role, resumeSearch.location, 1, resume.analysis);
               }}
             />
+          </div>
+        </div>
+      )}
+
+      {selectedJob && (
+        <div className="resume-modal-backdrop" onClick={() => setSelectedJob(null)}>
+          <div
+            className="job-details-modal-card"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="resume-modal-header">
+              <div>
+                <h2>{selectedJob.title}</h2>
+                <p>{selectedJob.company} · {selectedJob.location}</p>
+              </div>
+              <button
+                type="button"
+                className="resume-modal-close"
+                onClick={() => setSelectedJob(null)}
+                aria-label="Close job details"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="job-details-body">
+              {selectedJob.aiSummary && (
+                <div className="job-details-summary">
+                  <h3>AI Summary</h3>
+                  <p>{selectedJob.aiSummary}</p>
+                </div>
+              )}
+
+              {isJobDetailsLoading && (
+                <div className="job-details-loading">Loading full job overview...</div>
+              )}
+
+              {jobDetailsError && (
+                <div className="alert alert-warning">
+                  {jobDetailsError}
+                </div>
+              )}
+
+              <div className="job-details-section">
+                <h3>Job Overview</h3>
+                <p>{selectedJob.overview || selectedJob.aiSummary || selectedJob.description || 'No description available'}</p>
+              </div>
+
+              <details className="job-details-raw">
+                <summary>Show full description</summary>
+                <p>{selectedJob.fullDescription || selectedJob.description || 'No description available'}</p>
+              </details>
+
+              <div className="job-details-footer">
+                <a href={selectedJob.url} target="_blank" rel="noopener noreferrer" className="btn btn-primary">
+                  Open job posting
+                </a>
+              </div>
+            </div>
           </div>
         </div>
       )}
