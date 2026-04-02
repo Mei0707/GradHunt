@@ -4,9 +4,11 @@ import JobCard from './components/JobCard/JobCard';
 import SearchForm from './components/SearchForm/SearchForm';
 import Pagination from "./components/Pagination/Pagination";
 import ResumeUpload from './components/ResumeUpload/ResumeUpload';
+import AuthModal from './components/AuthModal/AuthModal';
 
 function App() {
   const DEFAULT_SEARCH = { role: 'software engineer', location: 'New York', jobType: 'full-time' };
+  const AUTH_STORAGE_KEY = 'gradhunt-auth';
   const [jobs, setJobs] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -19,6 +21,9 @@ function App() {
   const [selectedJob, setSelectedJob] = useState(null);
   const [isJobDetailsLoading, setIsJobDetailsLoading] = useState(false);
   const [jobDetailsError, setJobDetailsError] = useState(null);
+  const [authState, setAuthState] = useState(null);
+  const [authError, setAuthError] = useState(null);
+  const [authModalMode, setAuthModalMode] = useState(null);
 
   const readJsonResponse = async (response) => {
     const rawText = await response.text();
@@ -94,6 +99,42 @@ function App() {
     searchJobs(DEFAULT_SEARCH.role, DEFAULT_SEARCH.location);
   }, []);
 
+  useEffect(() => {
+    const storedAuth = window.localStorage.getItem(AUTH_STORAGE_KEY);
+    if (!storedAuth) {
+      return;
+    }
+
+    try {
+      const parsedAuth = JSON.parse(storedAuth);
+      if (!parsedAuth?.token) {
+        return;
+      }
+
+      fetch('http://localhost:3000/api/auth/me', {
+        headers: {
+          Authorization: `Bearer ${parsedAuth.token}`,
+        },
+      })
+        .then(async (response) => {
+          const data = await readJsonResponse(response);
+          if (!response.ok) {
+            throw new Error(data.message || 'Session expired.');
+          }
+          setAuthState({
+            token: parsedAuth.token,
+            user: data.user,
+          });
+        })
+        .catch(() => {
+          window.localStorage.removeItem(AUTH_STORAGE_KEY);
+          setAuthState(null);
+        });
+    } catch {
+      window.localStorage.removeItem(AUTH_STORAGE_KEY);
+    }
+  }, []);
+
   const handleViewJobDetails = async (job) => {
     setSelectedJob({
       ...job,
@@ -157,16 +198,48 @@ function App() {
     };
   };
 
+  const handleAuthSuccess = ({ token, user }) => {
+    const nextAuthState = { token, user };
+    setAuthState(nextAuthState);
+    setAuthError(null);
+    setAuthModalMode(null);
+    window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(nextAuthState));
+  };
+
+  const handleLogout = () => {
+    setAuthState(null);
+    setAuthError(null);
+    window.localStorage.removeItem(AUTH_STORAGE_KEY);
+  };
+
   return (
     <div className="app-container">
       <div className="header">
         <div className="container">
-          <h1 className="display-4">GradHunt</h1>
-          <p className="lead">Find tech internships and entry-level positions directly from company career sites</p>
+          <div className="header-bar">
+            <div>
+              <h1 className="display-4">GradHunt</h1>
+              <p className="lead">Find tech internships and entry-level positions directly from company career sites</p>
+            </div>
+            <div className="auth-actions">
+              {authState?.user ? (
+                <>
+                  <span className="auth-welcome">Signed in as {authState.user.name}</span>
+                  <button type="button" className="btn btn-light" onClick={handleLogout}>Log out</button>
+                </>
+              ) : (
+                <>
+                  <button type="button" className="btn btn-light" onClick={() => setAuthModalMode('login')}>Log in</button>
+                  <button type="button" className="btn btn-outline-light" onClick={() => setAuthModalMode('register')}>Sign up</button>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
       <div className="container">
+        {authError && <div className="alert alert-warning">{authError}</div>}
         <SearchForm
           onSearch={(role, location, jobType) => searchJobs(role, location, 1, null, jobType)}
           onUploadClick={() => setIsResumeModalOpen(true)}
@@ -364,6 +437,14 @@ function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {authModalMode && (
+        <AuthModal
+          mode={authModalMode}
+          onClose={() => setAuthModalMode(null)}
+          onAuthSuccess={handleAuthSuccess}
+        />
       )}
     </div>
   );

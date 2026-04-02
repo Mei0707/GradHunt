@@ -22,6 +22,25 @@
   box-shadow: 0 18px 40px rgba(34, 34, 59, 0.18);
 }
 
+.header-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.auth-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.auth-welcome {
+  font-weight: 600;
+}
+
 .loading {
   display: flex;
   justify-content: center;
@@ -222,6 +241,10 @@
 }
 
 @media (max-width: 768px) {
+  .header-bar {
+    flex-direction: column;
+  }
+
   .resume-analysis-header {
     flex-direction: column;
   }

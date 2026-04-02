@@ -6,6 +6,7 @@ const connectDB = require('./config/db');
 const cors = require('cors');
 const jobRoutes = require('./routes/jobRoutes');
 const resumeRoutes = require('./routes/resumeRoutes');
+const authRoutes = require('./routes/authRoutes');
 
 // Load environment variables
 dotenv.config();
@@ -81,6 +82,7 @@ app.get('/api/scraper-status', (req, res) => {
 });
 
 // Job routes
+app.use('/api/auth', authRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/resume', resumeRoutes);
 
