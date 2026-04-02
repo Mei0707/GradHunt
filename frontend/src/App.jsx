@@ -207,6 +207,11 @@ function App() {
   };
 
   const handleLogout = () => {
+    const shouldLogout = window.confirm('Log out of your GradHunt account?');
+    if (!shouldLogout) {
+      return;
+    }
+
     setAuthState(null);
     setAuthError(null);
     window.localStorage.removeItem(AUTH_STORAGE_KEY);
