@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { analyzeResumeInput } = require('../services/resumeAnalysisService');
+const SavedResume = require('../models/SavedResume');
 
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_EXTENSIONS = new Set(['.pdf', '.doc', '.docx', '.txt']);
@@ -104,7 +105,107 @@ const analyzeResume = async (req, res) => {
   }
 };
 
+const listSavedResumes = async (req, res) => {
+  try {
+    const savedResumes = await SavedResume.find({ user: req.user._id })
+      .sort({ uploadedAt: -1, createdAt: -1 })
+      .lean();
+
+    res.json({
+      resumes: savedResumes.map((resume) => ({
+        id: resume._id.toString(),
+        originalName: resume.originalName,
+        storedFileName: resume.storedFileName,
+        mimeType: resume.mimeType,
+        size: resume.size,
+        uploadedAt: resume.uploadedAt,
+        analysis: resume.analysis,
+        extractedTextPreview: resume.extractedTextPreview,
+      })),
+    });
+  } catch (error) {
+    console.error('Error fetching saved resumes:', error);
+    res.status(500).json({
+      error: 'Failed to load saved resumes',
+      message: 'An unexpected error occurred while loading resume history.',
+    });
+  }
+};
+
+const saveResumeToHistory = async (req, res) => {
+  try {
+    const {
+      originalName,
+      storedFileName = null,
+      mimeType = 'application/octet-stream',
+      size = 0,
+      uploadedAt,
+      analysis,
+      extractedTextPreview = '',
+    } = req.body;
+
+    if (!originalName || !analysis) {
+      return res.status(400).json({
+        error: 'Missing resume data',
+        message: 'originalName and analysis are required to save resume history.',
+      });
+    }
+
+    let savedResume;
+
+    if (storedFileName) {
+      savedResume = await SavedResume.findOneAndUpdate(
+        { user: req.user._id, storedFileName },
+        {
+          user: req.user._id,
+          originalName,
+          storedFileName,
+          mimeType,
+          size,
+          uploadedAt: uploadedAt ? new Date(uploadedAt) : new Date(),
+          analysis,
+          extractedTextPreview,
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+    } else {
+      savedResume = await SavedResume.create({
+        user: req.user._id,
+        originalName,
+        storedFileName: null,
+        mimeType,
+        size,
+        uploadedAt: uploadedAt ? new Date(uploadedAt) : new Date(),
+        analysis,
+        extractedTextPreview,
+      });
+    }
+
+    res.status(201).json({
+      message: 'Resume saved to your history.',
+      resume: {
+        id: savedResume._id.toString(),
+        originalName: savedResume.originalName,
+        storedFileName: savedResume.storedFileName,
+        mimeType: savedResume.mimeType,
+        size: savedResume.size,
+        uploadedAt: savedResume.uploadedAt,
+        analysis: savedResume.analysis,
+        extractedTextPreview: savedResume.extractedTextPreview,
+      },
+    });
+  } catch (error) {
+    console.error('Error saving resume history:', error);
+    res.status(500).json({
+      error: 'Failed to save resume history',
+      message: 'An unexpected error occurred while saving the resume.',
+    });
+  }
+};
+
 module.exports = {
   uploadResume,
   analyzeResume,
+  listSavedResumes,
+  saveResumeToHistory,
 };

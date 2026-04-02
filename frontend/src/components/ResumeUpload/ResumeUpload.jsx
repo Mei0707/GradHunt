@@ -28,7 +28,7 @@ const readJsonResponse = async (response) => {
   }
 };
 
-function ResumeUpload({ onUploadSuccess }) {
+function ResumeUpload({ onUploadSuccess, authToken = null, savedResumes = [], onResumeHistoryUpdated = null }) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [resumeText, setResumeText] = useState('');
   const [isUploading, setIsUploading] = useState(false);
@@ -75,16 +75,30 @@ function ResumeUpload({ onUploadSuccess }) {
         }
 
         setSuccessMessage('Resume text analyzed successfully.');
+        const savedResumePayload = {
+          originalName: 'Pasted resume text',
+          storedFileName: null,
+          mimeType: 'text/plain',
+          size: resumeText.length,
+          uploadedAt: new Date().toISOString(),
+          analysis: analysisData.analysis,
+          extractedTextPreview: analysisData.extractedTextPreview,
+        };
+
+        if (authToken) {
+          await fetch('http://localhost:3000/api/resume/save', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${authToken}`,
+            },
+            body: JSON.stringify(savedResumePayload),
+          }).catch(() => {});
+          onResumeHistoryUpdated?.();
+        }
+
         if (onUploadSuccess) {
-          onUploadSuccess({
-            originalName: 'Pasted resume text',
-            storedFileName: null,
-            mimeType: 'text/plain',
-            size: resumeText.length,
-            uploadedAt: new Date().toISOString(),
-            analysis: analysisData.analysis,
-            extractedTextPreview: analysisData.extractedTextPreview,
-          });
+          onUploadSuccess(savedResumePayload);
         }
       } catch (uploadError) {
         console.error('Resume analysis failed:', uploadError);
@@ -137,12 +151,26 @@ function ResumeUpload({ onUploadSuccess }) {
       }
 
       setSuccessMessage(`${data.resume.originalName} uploaded and analyzed successfully.`);
+      const completedResume = {
+        ...data.resume,
+        analysis: analysisData.analysis,
+        extractedTextPreview: analysisData.extractedTextPreview,
+      };
+
+      if (authToken) {
+        await fetch('http://localhost:3000/api/resume/save', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${authToken}`,
+          },
+          body: JSON.stringify(completedResume),
+        }).catch(() => {});
+        onResumeHistoryUpdated?.();
+      }
+
       if (onUploadSuccess) {
-        onUploadSuccess({
-          ...data.resume,
-          analysis: analysisData.analysis,
-          extractedTextPreview: analysisData.extractedTextPreview,
-        });
+        onUploadSuccess(completedResume);
       }
     } catch (uploadError) {
       console.error('Resume upload failed:', uploadError);
@@ -159,6 +187,31 @@ function ResumeUpload({ onUploadSuccess }) {
         <h2>Upload Your Resume</h2>
         <p>Add your resume first, then we can build AI matching on top of it.</p>
       </div>
+
+      {savedResumes.length > 0 && (
+        <div className="saved-resume-list">
+          <div className="saved-resume-list-header">Previous resumes</div>
+          <div className="saved-resume-items">
+            {savedResumes.map((resume) => (
+              <button
+                type="button"
+                key={resume.id || `${resume.originalName}-${resume.uploadedAt}`}
+                className="saved-resume-item"
+                onClick={() => {
+                  setError('');
+                  setSuccessMessage(`Using saved resume: ${resume.originalName}`);
+                  onUploadSuccess?.(resume);
+                }}
+              >
+                <span className="saved-resume-name">{resume.originalName}</span>
+                <span className="saved-resume-meta">
+                  {new Date(resume.uploadedAt).toLocaleDateString()}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <form onSubmit={handleUpload} className="row g-3">
         <div className="col-md-8">

@@ -24,6 +24,7 @@ function App() {
   const [authState, setAuthState] = useState(null);
   const [authError, setAuthError] = useState(null);
   const [authModalMode, setAuthModalMode] = useState(null);
+  const [savedResumes, setSavedResumes] = useState([]);
 
   const readJsonResponse = async (response) => {
     const rawText = await response.text();
@@ -99,6 +100,31 @@ function App() {
     searchJobs(DEFAULT_SEARCH.role, DEFAULT_SEARCH.location);
   }, []);
 
+  const fetchSavedResumes = async (token) => {
+    if (!token) {
+      setSavedResumes([]);
+      return;
+    }
+
+    try {
+      const response = await fetch('http://localhost:3000/api/resume/history', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await readJsonResponse(response);
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to load saved resumes.');
+      }
+
+      setSavedResumes(data.resumes || []);
+    } catch (error) {
+      console.error('Resume history error:', error);
+      setSavedResumes([]);
+    }
+  };
+
   useEffect(() => {
     const storedAuth = window.localStorage.getItem(AUTH_STORAGE_KEY);
     if (!storedAuth) {
@@ -125,10 +151,12 @@ function App() {
             token: parsedAuth.token,
             user: data.user,
           });
+          fetchSavedResumes(parsedAuth.token);
         })
         .catch(() => {
           window.localStorage.removeItem(AUTH_STORAGE_KEY);
           setAuthState(null);
+          setSavedResumes([]);
         });
     } catch {
       window.localStorage.removeItem(AUTH_STORAGE_KEY);
@@ -204,6 +232,7 @@ function App() {
     setAuthError(null);
     setAuthModalMode(null);
     window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(nextAuthState));
+    fetchSavedResumes(token);
   };
 
   const handleLogout = () => {
@@ -214,6 +243,7 @@ function App() {
 
     setAuthState(null);
     setAuthError(null);
+    setSavedResumes([]);
     window.localStorage.removeItem(AUTH_STORAGE_KEY);
   };
 
@@ -374,6 +404,9 @@ function App() {
             </div>
 
             <ResumeUpload
+              authToken={authState?.token || null}
+              savedResumes={savedResumes}
+              onResumeHistoryUpdated={() => fetchSavedResumes(authState?.token)}
               onUploadSuccess={(resume) => {
                 setUploadedResume(resume);
                 setIsResumeModalOpen(false);

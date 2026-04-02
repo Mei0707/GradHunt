@@ -50,7 +50,34 @@ const requireAuth = async (req, res, next) => {
   }
 };
 
+const optionalAuth = async (req, res, next) => {
+  if (!requireDatabaseConnection(res)) {
+    return;
+  }
+
+  try {
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
+    if (!token) {
+      return next();
+    }
+
+    const payload = verifyToken(token);
+    const user = await User.findById(payload.userId).select('_id name email createdAt');
+
+    if (user) {
+      req.user = user;
+    }
+  } catch (error) {
+    // Ignore optional auth failures and continue anonymously.
+  }
+
+  next();
+};
+
 module.exports = {
   requireAuth,
   requireDatabaseConnection,
+  optionalAuth,
 };
