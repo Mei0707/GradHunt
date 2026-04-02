@@ -28,6 +28,17 @@ function App() {
   const [appliedJobs, setAppliedJobs] = useState([]);
   const [applyPromptJob, setApplyPromptJob] = useState(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [profileTab, setProfileTab] = useState('overview');
+  const [profileForm, setProfileForm] = useState({ name: '', email: '' });
+  const [profileStatus, setProfileStatus] = useState({ error: null, success: null });
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [passwordStatus, setPasswordStatus] = useState({ error: null, success: null });
+  const [isProfileSaving, setIsProfileSaving] = useState(false);
+  const [isPasswordSaving, setIsPasswordSaving] = useState(false);
 
   const readJsonResponse = async (response) => {
     const rawText = await response.text();
@@ -194,6 +205,18 @@ function App() {
     }
   }, []);
 
+  useEffect(() => {
+    if (!authState?.user) {
+      setProfileForm({ name: '', email: '' });
+      return;
+    }
+
+    setProfileForm({
+      name: authState.user.name || '',
+      email: authState.user.email || '',
+    });
+  }, [authState?.user]);
+
   const handleViewJobDetails = async (job) => {
     setSelectedJob({
       ...job,
@@ -340,6 +363,105 @@ function App() {
     fetchAppliedJobs(token);
   };
 
+  const openProfile = () => {
+    setProfileTab('overview');
+    setProfileStatus({ error: null, success: null });
+    setPasswordStatus({ error: null, success: null });
+    setPasswordForm({
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: '',
+    });
+    setIsProfileOpen(true);
+  };
+
+  const updateStoredAuthUser = (nextUser) => {
+    setAuthState((currentAuth) => {
+      if (!currentAuth) {
+        return currentAuth;
+      }
+
+      const nextAuthState = {
+        ...currentAuth,
+        user: nextUser,
+      };
+      window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(nextAuthState));
+      return nextAuthState;
+    });
+  };
+
+  const handleProfileSave = async (event) => {
+    event.preventDefault();
+
+    if (!authState?.token) {
+      return;
+    }
+
+    setIsProfileSaving(true);
+    setProfileStatus({ error: null, success: null });
+
+    try {
+      const response = await fetch('http://localhost:3000/api/auth/profile', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authState.token}`,
+        },
+        body: JSON.stringify(profileForm),
+      });
+
+      const data = await readJsonResponse(response);
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to update profile.');
+      }
+
+      updateStoredAuthUser(data.user);
+      setProfileStatus({ error: null, success: data.message || 'Profile updated successfully.' });
+    } catch (error) {
+      setProfileStatus({ error: error.message || 'Failed to update profile.', success: null });
+    } finally {
+      setIsProfileSaving(false);
+    }
+  };
+
+  const handlePasswordSave = async (event) => {
+    event.preventDefault();
+
+    if (!authState?.token) {
+      return;
+    }
+
+    setIsPasswordSaving(true);
+    setPasswordStatus({ error: null, success: null });
+
+    try {
+      const response = await fetch('http://localhost:3000/api/auth/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authState.token}`,
+        },
+        body: JSON.stringify(passwordForm),
+      });
+
+      const data = await readJsonResponse(response);
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to change password.');
+      }
+
+      setPasswordForm({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+      });
+      setPasswordStatus({ error: null, success: data.message || 'Password updated successfully.' });
+    } catch (error) {
+      setPasswordStatus({ error: error.message || 'Failed to change password.', success: null });
+    } finally {
+      setIsPasswordSaving(false);
+    }
+  };
+
   const handleLogout = () => {
     const shouldLogout = window.confirm('Log out of your GradHunt account?');
     if (!shouldLogout) {
@@ -367,7 +489,7 @@ function App() {
               {authState?.user ? (
                 <>
                   <span className="auth-welcome">Signed in as {authState.user.name}</span>
-                  <button type="button" className="btn btn-outline-light" onClick={() => setIsProfileOpen(true)}>
+                  <button type="button" className="btn btn-outline-light" onClick={openProfile}>
                     Profile
                   </button>
                   <button type="button" className="btn btn-light" onClick={handleLogout}>Log out</button>
@@ -514,72 +636,194 @@ function App() {
             </div>
 
             <div className="job-details-body">
-              <div className="profile-summary-grid">
-                <div className="profile-stat-card">
-                  <strong>{savedResumes.length}</strong>
-                  <span>Saved resumes</span>
-                </div>
-                <div className="profile-stat-card">
-                  <strong>{appliedJobs.length}</strong>
-                  <span>Applied jobs</span>
-                </div>
+              <div className="profile-tab-bar">
+                <button
+                  type="button"
+                  className={`profile-tab ${profileTab === 'overview' ? 'profile-tab-active' : ''}`}
+                  onClick={() => setProfileTab('overview')}
+                >
+                  Overview
+                </button>
+                <button
+                  type="button"
+                  className={`profile-tab ${profileTab === 'settings' ? 'profile-tab-active' : ''}`}
+                  onClick={() => setProfileTab('settings')}
+                >
+                  Settings
+                </button>
               </div>
 
-              <div className="profile-section">
-                <div className="resume-analysis-header">
-                  <div>
-                    <h2>Applied Job History</h2>
-                    <p>Jobs you have marked as applied.</p>
+              {profileTab === 'overview' ? (
+                <>
+                  <div className="profile-summary-grid">
+                    <div className="profile-stat-card">
+                      <strong>{savedResumes.length}</strong>
+                      <span>Saved resumes</span>
+                    </div>
+                    <div className="profile-stat-card">
+                      <strong>{appliedJobs.length}</strong>
+                      <span>Applied jobs</span>
+                    </div>
+                    <div className="profile-stat-card">
+                      <strong>{authState.user.email}</strong>
+                      <span>Account email</span>
+                    </div>
+                    <div className="profile-stat-card">
+                      <strong>{new Date(authState.user.createdAt).toLocaleDateString()}</strong>
+                      <span>Member since</span>
+                    </div>
                   </div>
-                  <div className="resume-analysis-level">{appliedJobs.length} saved</div>
-                </div>
-                {appliedJobs.length > 0 ? (
-                  <div className="applied-history-list">
-                    {appliedJobs.map((job) => (
-                      <a
-                        key={job.id}
-                        className="applied-history-item"
-                        href={job.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <strong>{job.title}</strong>
-                        <span>{job.company} · {job.location}</span>
-                        <small>Applied {new Date(job.appliedAt).toLocaleDateString()}</small>
-                      </a>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="alert alert-info profile-empty-state">
-                    No applied jobs yet. When you click Apply and confirm it, it will show up here.
-                  </div>
-                )}
-              </div>
 
-              <div className="profile-section">
-                <div className="resume-analysis-header">
-                  <div>
-                    <h2>Saved Resumes</h2>
-                    <p>Your previously uploaded resumes.</p>
-                  </div>
-                  <div className="resume-analysis-level">{savedResumes.length} saved</div>
-                </div>
-                {savedResumes.length > 0 ? (
-                  <div className="applied-history-list">
-                    {savedResumes.map((resume) => (
-                      <div key={resume.id} className="applied-history-item">
-                        <strong>{resume.originalName}</strong>
-                        <span>{resume.analysis?.experience_level || 'Resume analysis available'}</span>
-                        <small>Uploaded {new Date(resume.createdAt).toLocaleDateString()}</small>
+                  <div className="profile-section">
+                    <div className="resume-analysis-header">
+                      <div>
+                        <h2>Applied Job History</h2>
+                        <p>Jobs you have marked as applied.</p>
                       </div>
-                    ))}
+                      <div className="resume-analysis-level">{appliedJobs.length} saved</div>
+                    </div>
+                    {appliedJobs.length > 0 ? (
+                      <div className="applied-history-list">
+                        {appliedJobs.map((job) => (
+                          <a
+                            key={job.id}
+                            className="applied-history-item"
+                            href={job.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <strong>{job.title}</strong>
+                            <span>{job.company} · {job.location}</span>
+                            <small>Applied {new Date(job.appliedAt).toLocaleDateString()}</small>
+                          </a>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="alert alert-info profile-empty-state">
+                        No applied jobs yet. When you click Apply and confirm it, it will show up here.
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <div className="alert alert-info profile-empty-state">
-                    No saved resumes yet. Upload one from the search form to store it in your profile.
+
+                  <div className="profile-section">
+                    <div className="resume-analysis-header">
+                      <div>
+                        <h2>Saved Resumes</h2>
+                        <p>Your previously uploaded resumes.</p>
+                      </div>
+                      <div className="resume-analysis-level">{savedResumes.length} saved</div>
+                    </div>
+                    {savedResumes.length > 0 ? (
+                      <div className="applied-history-list">
+                        {savedResumes.map((resume) => (
+                          <div key={resume.id} className="applied-history-item">
+                            <strong>{resume.originalName}</strong>
+                            <span>{resume.analysis?.experience_level || 'Resume analysis available'}</span>
+                            <small>Uploaded {new Date(resume.createdAt).toLocaleDateString()}</small>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="alert alert-info profile-empty-state">
+                        No saved resumes yet. Upload one from the search form to store it in your profile.
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                </>
+              ) : (
+                <div className="profile-settings-grid">
+                  <div className="profile-settings-card">
+                    <div className="resume-analysis-header">
+                      <div>
+                        <h2>Account Details</h2>
+                        <p>Update your public account information.</p>
+                      </div>
+                    </div>
+                    {profileStatus.error && <div className="alert alert-danger">{profileStatus.error}</div>}
+                    {profileStatus.success && <div className="alert alert-success">{profileStatus.success}</div>}
+                    <form className="profile-form" onSubmit={handleProfileSave}>
+                      <label className="profile-label">
+                        <span>Name</span>
+                        <input
+                          type="text"
+                          className="form-control"
+                          value={profileForm.name}
+                          onChange={(event) =>
+                            setProfileForm((current) => ({ ...current, name: event.target.value }))
+                          }
+                        />
+                      </label>
+                      <label className="profile-label">
+                        <span>Email</span>
+                        <input
+                          type="email"
+                          className="form-control"
+                          value={profileForm.email}
+                          onChange={(event) =>
+                            setProfileForm((current) => ({ ...current, email: event.target.value }))
+                          }
+                        />
+                      </label>
+                      <div className="profile-form-actions">
+                        <button type="submit" className="btn btn-primary" disabled={isProfileSaving}>
+                          {isProfileSaving ? 'Saving...' : 'Save changes'}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+
+                  <div className="profile-settings-card">
+                    <div className="resume-analysis-header">
+                      <div>
+                        <h2>Change Password</h2>
+                        <p>Keep your account secure with a new password.</p>
+                      </div>
+                    </div>
+                    {passwordStatus.error && <div className="alert alert-danger">{passwordStatus.error}</div>}
+                    {passwordStatus.success && <div className="alert alert-success">{passwordStatus.success}</div>}
+                    <form className="profile-form" onSubmit={handlePasswordSave}>
+                      <label className="profile-label">
+                        <span>Current password</span>
+                        <input
+                          type="password"
+                          className="form-control"
+                          value={passwordForm.currentPassword}
+                          onChange={(event) =>
+                            setPasswordForm((current) => ({ ...current, currentPassword: event.target.value }))
+                          }
+                        />
+                      </label>
+                      <label className="profile-label">
+                        <span>New password</span>
+                        <input
+                          type="password"
+                          className="form-control"
+                          value={passwordForm.newPassword}
+                          onChange={(event) =>
+                            setPasswordForm((current) => ({ ...current, newPassword: event.target.value }))
+                          }
+                        />
+                      </label>
+                      <label className="profile-label">
+                        <span>Confirm new password</span>
+                        <input
+                          type="password"
+                          className="form-control"
+                          value={passwordForm.confirmPassword}
+                          onChange={(event) =>
+                            setPasswordForm((current) => ({ ...current, confirmPassword: event.target.value }))
+                          }
+                        />
+                      </label>
+                      <div className="profile-form-actions">
+                        <button type="submit" className="btn btn-primary" disabled={isPasswordSaving}>
+                          {isPasswordSaving ? 'Updating...' : 'Update password'}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -31,7 +31,7 @@ const requireAuth = async (req, res, next) => {
     }
 
     const payload = verifyToken(token);
-    const user = await User.findById(payload.userId).select('_id name email createdAt');
+    const user = await User.findById(payload.userId).select('_id name email passwordHash createdAt');
 
     if (!user) {
       return res.status(401).json({

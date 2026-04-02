@@ -86,6 +86,13 @@ app.use('/api/auth', authRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/resume', resumeRoutes);
 
+app.use('/api', (req, res) => {
+  res.status(404).json({
+    error: 'API route not found',
+    message: `No API route matches ${req.method} ${req.originalUrl}.`,
+  });
+});
+
 // Serve frontend from backend if in production
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../frontend')));
