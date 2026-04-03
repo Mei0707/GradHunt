@@ -121,6 +121,7 @@ module.exports = {
 
 const jobAggregationService = require('../services/jobAggregationService');
 const { getJobDetails } = require('../services/jobDetailService');
+const { generateCoverLetter } = require('../services/coverLetterService');
 const AppliedJob = require('../models/AppliedJob');
 
 // controllers/jobController.js
@@ -317,9 +318,37 @@ const fetchJobDetails = async (req, res) => {
   }
 };
 
+const generateJobCoverLetter = async (req, res) => {
+  try {
+    const { job, resume } = req.body || {};
+
+    if (!job?.url) {
+      return res.status(400).json({
+        error: 'Job URL is required to generate a cover letter.',
+      });
+    }
+
+    if (!resume?.analysis) {
+      return res.status(400).json({
+        error: 'Resume analysis is required to generate a cover letter.',
+      });
+    }
+
+    const result = await generateCoverLetter({ job, resume });
+    return res.json(result);
+  } catch (error) {
+    console.error('Error generating cover letter:', error);
+    return res.status(500).json({
+      error: 'Failed to generate cover letter.',
+      message: error.message,
+    });
+  }
+};
+
 module.exports = {
   searchJobs,
   fetchJobDetails,
+  generateJobCoverLetter,
   listAppliedJobs,
   saveAppliedJob,
 };

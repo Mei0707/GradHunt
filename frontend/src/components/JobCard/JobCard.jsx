@@ -1,7 +1,7 @@
 // components/JobCard/JobCard.jsx
 import './JobCard.css';
 
-function JobCard({ job, onViewDetails, onApply }) {
+function JobCard({ job, onViewDetails, onApply, onGenerateCoverLetter, canGenerateCoverLetter = false }) {
   // Format salary if available
   let salaryText = '';
   if (job.salary_min && job.salary_max) {
@@ -88,6 +88,15 @@ function JobCard({ job, onViewDetails, onApply }) {
               >
                 View details
               </button>
+              {canGenerateCoverLetter && (
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-success"
+                  onClick={() => onGenerateCoverLetter(job)}
+                >
+                  Generate cover letter
+                </button>
+              )}
               <button
                 type="button"
                 className={`btn btn-sm ${isApplied ? 'btn-success' : 'btn-outline-primary'}`}

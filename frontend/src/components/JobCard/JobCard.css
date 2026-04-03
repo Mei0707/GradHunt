@@ -106,3 +106,13 @@
   flex-wrap: wrap;
   justify-content: flex-end;
 }
+
+.job-card-button-row .btn-outline-success {
+  border-color: #588157;
+  color: #3a5a40;
+}
+
+.job-card-button-row .btn-outline-success:hover {
+  background: #588157;
+  color: #f6f4ee;
+}

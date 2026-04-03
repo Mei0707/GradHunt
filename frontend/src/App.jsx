@@ -23,6 +23,9 @@ function App() {
   const [selectedJob, setSelectedJob] = useState(null);
   const [isJobDetailsLoading, setIsJobDetailsLoading] = useState(false);
   const [jobDetailsError, setJobDetailsError] = useState(null);
+  const [coverLetterModal, setCoverLetterModal] = useState(null);
+  const [isCoverLetterLoading, setIsCoverLetterLoading] = useState(false);
+  const [coverLetterError, setCoverLetterError] = useState(null);
   const [authState, setAuthState] = useState(null);
   const [authError, setAuthError] = useState(null);
   const [authModalMode, setAuthModalMode] = useState(null);
@@ -367,6 +370,48 @@ function App() {
       job,
       mode: 'confirm',
     });
+  };
+
+  const handleGenerateCoverLetter = async (job) => {
+    if (!uploadedResume?.analysis) {
+      setAuthError('Upload and analyze a resume first to generate a tailored cover letter.');
+      return;
+    }
+
+    setCoverLetterModal({
+      job,
+      coverLetter: '',
+    });
+    setCoverLetterError(null);
+    setIsCoverLetterLoading(true);
+
+    try {
+      const response = await fetch('http://localhost:3000/api/jobs/cover-letter', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          job,
+          resume: uploadedResume,
+        }),
+      });
+
+      const data = await readJsonResponse(response);
+      if (!response.ok) {
+        throw new Error(data.message || data.error || 'Failed to generate cover letter.');
+      }
+
+      setCoverLetterModal({
+        job: data.job || job,
+        coverLetter: data.coverLetter || '',
+      });
+    } catch (error) {
+      console.error('Cover letter generation error:', error);
+      setCoverLetterError(error.message || 'Failed to generate cover letter.');
+    } finally {
+      setIsCoverLetterLoading(false);
+    }
   };
 
   const saveAppliedJob = async (job) => {
@@ -785,7 +830,14 @@ function App() {
             <div className="row">
               {jobs.length > 0 ? (
                 jobs.map(job => (
-                  <JobCard key={job.id} job={job} onViewDetails={handleViewJobDetails} onApply={handleApply} />
+                  <JobCard
+                    key={job.id}
+                    job={job}
+                    onViewDetails={handleViewJobDetails}
+                    onApply={handleApply}
+                    onGenerateCoverLetter={handleGenerateCoverLetter}
+                    canGenerateCoverLetter={Boolean(uploadedResume?.analysis)}
+                  />
                 ))
               ) : (
                 <div className="col-12">
@@ -1292,6 +1344,65 @@ function App() {
 
               <div className="job-details-footer">
                 <a href={selectedJob.url} target="_blank" rel="noopener noreferrer" className="btn btn-primary">
+                  Open job posting
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {coverLetterModal && (
+        <div className="resume-modal-backdrop" onClick={() => setCoverLetterModal(null)}>
+          <div
+            className="job-details-modal-card"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="resume-modal-header">
+              <div>
+                <h2>Tailored Cover Letter</h2>
+                <p>{coverLetterModal.job.title} · {coverLetterModal.job.company}</p>
+              </div>
+              <button
+                type="button"
+                className="resume-modal-close"
+                onClick={() => setCoverLetterModal(null)}
+                aria-label="Close cover letter"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="job-details-body">
+              <div className="job-details-summary cover-letter-summary">
+                <h3>Built from your resume and this job</h3>
+                <p>Use this as a starting point, then personalize details like the company team, product, or why you specifically want this role.</p>
+              </div>
+
+              {isCoverLetterLoading && (
+                <div className="job-details-loading">Generating your cover letter...</div>
+              )}
+
+              {coverLetterError && (
+                <div className="alert alert-warning">
+                  {coverLetterError}
+                </div>
+              )}
+
+              {coverLetterModal.coverLetter && !isCoverLetterLoading && (
+                <div className="job-details-section">
+                  <h3>Generated draft</h3>
+                  <div className="cover-letter-text">{coverLetterModal.coverLetter}</div>
+                </div>
+              )}
+
+              <div className="job-details-footer">
+                <a
+                  href={coverLetterModal.job.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-outline-secondary"
+                >
                   Open job posting
                 </a>
               </div>

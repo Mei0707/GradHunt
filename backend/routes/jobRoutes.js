@@ -11,6 +11,7 @@ console.log('Loading job routes...');
 router.get('/search', optionalAuth, jobController.searchJobs);
 router.post('/search', optionalAuth, jobController.searchJobs);
 router.post('/details', jobController.fetchJobDetails);
+router.post('/cover-letter', jobController.generateJobCoverLetter);
 router.get('/applied', requireAuth, requireVerifiedEmail, jobController.listAppliedJobs);
 router.post('/applied', requireAuth, requireVerifiedEmail, jobController.saveAppliedJob);
 
