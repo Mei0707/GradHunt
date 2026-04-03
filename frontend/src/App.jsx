@@ -1422,6 +1422,19 @@ function App() {
           onAuthSuccess={handleAuthSuccess}
         />
       )}
+
+      <footer className="site-footer">
+        <div className="container site-footer-content">
+          <div className="site-footer-brand">
+            <strong>GradHunt</strong>
+            <span>AI-powered job search for interns and new grads.</span>
+          </div>
+          <div className="site-footer-meta">
+            <span>Sources: LinkedIn, Indeed, ZipRecruiter</span>
+            <span>Built to help students find better-fit tech roles faster.</span>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
