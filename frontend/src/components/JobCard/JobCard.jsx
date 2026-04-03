@@ -37,48 +37,49 @@ function JobCard({ job, onViewDetails, onApply, onGenerateCoverLetter, canGenera
     <div className="col-md-6 col-lg-4">
       <div className="card job-card h-100">
         <div className="card-body">
-          {matchScore !== null && (
-            <div className="match-score-row mb-3">
-              <span className="match-score-badge">{matchScore}% match</span>
+          <div className="job-card-content">
+            {matchScore !== null && (
+              <div className="match-score-row mb-3">
+                <span className="match-score-badge">{matchScore}% match</span>
+              </div>
+            )}
+            <div className="job-card-header-block">
+              <h5 className="card-title">{job.title}</h5>
+              <div className="company">{job.company}</div>
+              <div className="location">📍 {job.location}</div>
             </div>
-          )}
-          <h5 className="card-title">{job.title}</h5>
-          <div className="company mb-3">{job.company}</div>
-          <div className="location mb-3">📍 {job.location}</div>
-          
-          {/* Source badge */}
-          <div className="source mb-3">
-            <span className="badge bg-primary">{job.source || 'Job Board'}</span>
-            {isApplied && <span className="badge applied-badge ms-2">Already applied</span>}
-          </div>
-          
-          {/* Time posted */}
-          {timePosted && (
-            <div className="time-posted mb-2">
-              <small>Posted: {timePosted}</small>
-            </div>
-          )}
-          
-          {/* Applicant count if available */}
-          {applicantsInfo && (
-            <div className="applicants mb-2">
-              <small>{applicantsInfo}</small>
-            </div>
-          )}
-          
-          {salaryText && <div className="salary mb-3">{salaryText}</div>}
-          
-          <p className="card-text job-description my-4">{job.description}</p>
 
-          {matchReasons.length > 0 && (
-            <div className="match-reasons mb-3">
+            <div className="source">
+              <span className="badge bg-primary">{job.source || 'Job Board'}</span>
+              {isApplied && <span className="badge applied-badge ms-2">Already applied</span>}
+            </div>
+
+            <div className="job-card-meta">
+              {timePosted && (
+                <div className="time-posted">
+                  <small>Posted: {timePosted}</small>
+                </div>
+              )}
+
+              {applicantsInfo && (
+                <div className="applicants">
+                  <small>{applicantsInfo}</small>
+                </div>
+              )}
+
+              {salaryText && <div className="salary">{salaryText}</div>}
+            </div>
+
+            <p className="card-text job-description">{job.description}</p>
+
+            <div className="match-reasons">
               {matchReasons.slice(0, 3).map((reason) => (
                 <div key={reason} className="match-reason-item">{reason}</div>
               ))}
             </div>
-          )}
-          
-          <div className="job-card-actions mt-4">
+          </div>
+
+          <div className="job-card-actions">
             <small className="text-muted">Source: {job.source}</small>
             <div className="job-card-button-row">
               <button
@@ -86,7 +87,7 @@ function JobCard({ job, onViewDetails, onApply, onGenerateCoverLetter, canGenera
                 className="btn btn-sm btn-outline-secondary"
                 onClick={() => onViewDetails(job)}
               >
-                View details
+                Details
               </button>
               {canGenerateCoverLetter && (
                 <button
@@ -94,7 +95,7 @@ function JobCard({ job, onViewDetails, onApply, onGenerateCoverLetter, canGenera
                   className="btn btn-sm btn-outline-success"
                   onClick={() => onGenerateCoverLetter(job)}
                 >
-                  Generate cover letter
+                  Cover Letter
                 </button>
               )}
               <button
