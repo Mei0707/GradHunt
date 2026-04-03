@@ -1,11 +1,14 @@
 // services/scrapers/companyScrapers.js
 const { scrapeLinkedInJobsPy } = require('./linkedinScraperPy');
 const { scrapeIndeedJobsBrowser } = require('./indeedScraperBrowser');
+const { scrapeZipRecruiterJobsBrowser } = require('./zipRecruiterScraperBrowser');
 
 const LINKEDIN_TARGET_JOBS = 50;
 const INDEED_TARGET_JOBS = 25;
+const ZIPRECRUITER_TARGET_JOBS = 20;
 const LINKEDIN_TIMEOUT_MS = 120000;
 const INDEED_TIMEOUT_MS = 60000;
+const ZIPRECRUITER_TIMEOUT_MS = 60000;
 
 const buildSearchRole = (role, jobType = 'full-time') => {
   const normalizedRole = role.trim();
@@ -127,10 +130,16 @@ const scrapeAllCompanyJobs = async (role, location, jobType = 'full-time') => {
         scrapeIndeedJobsBrowser(searchRole, location, INDEED_TARGET_JOBS),
         INDEED_TIMEOUT_MS
       ),
+      withTimeout(
+        'ZipRecruiter scraper',
+        scrapeZipRecruiterJobsBrowser(searchRole, location, ZIPRECRUITER_TARGET_JOBS),
+        ZIPRECRUITER_TIMEOUT_MS
+      ),
     ]);
 
     const linkedinJobs = results[0].status === 'fulfilled' ? results[0].value : [];
     const indeedJobs = results[1].status === 'fulfilled' ? results[1].value : [];
+    const zipRecruiterJobs = results[2].status === 'fulfilled' ? results[2].value : [];
 
     if (results[0].status === 'rejected') {
       console.error('LinkedIn scraper failed:', results[0].reason);
@@ -140,11 +149,16 @@ const scrapeAllCompanyJobs = async (role, location, jobType = 'full-time') => {
       console.error('Indeed scraper failed:', results[1].reason);
     }
 
+    if (results[2].status === 'rejected') {
+      console.error('ZipRecruiter scraper failed:', results[2].reason);
+    }
+
     console.log(`LinkedIn jobs found: ${linkedinJobs.length}`);
     console.log(`Indeed jobs found: ${indeedJobs.length}`);
+    console.log(`ZipRecruiter jobs found: ${zipRecruiterJobs.length}`);
     
     // Combine all jobs
-    const allJobs = dedupeJobs([...linkedinJobs, ...indeedJobs]);
+    const allJobs = dedupeJobs([...linkedinJobs, ...indeedJobs, ...zipRecruiterJobs]);
     
     console.log(`Total jobs found: ${allJobs.length}`);
     return allJobs;
@@ -157,5 +171,6 @@ const scrapeAllCompanyJobs = async (role, location, jobType = 'full-time') => {
 module.exports = {
   scrapeLinkedInJobsPy,
   scrapeAllCompanyJobs,
-  scrapeIndeedJobsBrowser
+  scrapeIndeedJobsBrowser,
+  scrapeZipRecruiterJobsBrowser,
 };
