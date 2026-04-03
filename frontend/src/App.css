@@ -48,6 +48,57 @@
   height: 200px;
 }
 
+.auth-notice-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 18px 20px;
+  border-radius: 14px;
+  margin-bottom: 18px;
+  border: 1px solid var(--color-border);
+  box-shadow: 0 10px 24px rgba(34, 34, 59, 0.08);
+}
+
+.auth-notice-success {
+  background: rgba(163, 177, 138, 0.18);
+}
+
+.auth-notice-info {
+  background: rgba(201, 173, 167, 0.2);
+}
+
+.auth-notice-error {
+  background: rgba(201, 86, 86, 0.12);
+}
+
+.auth-notice-copy strong {
+  display: block;
+  color: var(--color-ink);
+  margin-bottom: 6px;
+}
+
+.auth-notice-copy p {
+  margin: 0;
+  color: var(--color-slate);
+}
+
+.auth-notice-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.auth-notice-dismiss {
+  border: none;
+  background: transparent;
+  color: var(--color-slate);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
 .resume-analysis-card {
   background: var(--color-surface-strong);
   border-radius: 12px;
@@ -282,6 +333,10 @@
   margin-bottom: 22px;
 }
 
+.profile-summary-grid-compact {
+  margin-bottom: 24px;
+}
+
 .profile-stat-card {
   display: flex;
   flex-direction: column;
@@ -300,6 +355,96 @@
 .profile-stat-card span {
   color: var(--color-slate);
   font-weight: 500;
+}
+
+.profile-stat-card-wide {
+  grid-column: span 2;
+}
+
+.profile-lock-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+  padding: 22px;
+  border-radius: 18px;
+  margin-bottom: 22px;
+  background: linear-gradient(135deg, rgba(201, 173, 167, 0.2) 0%, rgba(242, 233, 228, 0.95) 100%);
+  border: 1px solid rgba(154, 140, 152, 0.28);
+}
+
+.profile-lock-copy h3 {
+  margin: 10px 0 8px;
+  color: var(--color-ink);
+  font-size: 1.35rem;
+}
+
+.profile-lock-copy p {
+  margin: 0;
+  color: var(--color-slate);
+  line-height: 1.6;
+  max-width: 620px;
+}
+
+.profile-lock-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 7px 12px;
+  background: rgba(34, 34, 59, 0.08);
+  color: var(--color-ink);
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 0.01em;
+}
+
+.profile-lock-actions {
+  display: flex;
+  align-items: center;
+}
+
+.profile-lock-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.profile-lock-card {
+  padding: 20px;
+  border-radius: 16px;
+  border: 1px dashed rgba(154, 140, 152, 0.45);
+  background: rgba(201, 173, 167, 0.08);
+}
+
+.profile-lock-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 10px;
+}
+
+.profile-lock-card h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: var(--color-ink);
+}
+
+.profile-lock-card p {
+  margin: 0;
+  color: var(--color-slate);
+  line-height: 1.6;
+}
+
+.profile-lock-tag {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 7px 11px;
+  background: rgba(34, 34, 59, 0.1);
+  color: var(--color-ink);
+  font-weight: 700;
+  font-size: 0.85rem;
 }
 
 .profile-section + .profile-section {
@@ -340,6 +485,28 @@
 .profile-form-actions {
   display: flex;
   justify-content: flex-end;
+}
+
+.profile-verification-row {
+  margin-bottom: 14px;
+}
+
+.profile-verification-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-weight: 600;
+}
+
+.profile-verified {
+  background: rgba(58, 90, 64, 0.12);
+  color: #3a5a40;
+}
+
+.profile-unverified {
+  background: rgba(201, 173, 167, 0.24);
+  color: var(--color-ink);
 }
 
 .profile-empty-state {
@@ -389,6 +556,18 @@
     grid-template-columns: 1fr;
   }
 
+  .profile-stat-card-wide {
+    grid-column: span 1;
+  }
+
+  .profile-lock-hero {
+    flex-direction: column;
+  }
+
+  .profile-lock-grid {
+    grid-template-columns: 1fr;
+  }
+
   .profile-settings-grid {
     grid-template-columns: 1fr;
   }
@@ -396,6 +575,10 @@
   .resume-modal-backdrop {
     align-items: flex-end;
     padding: 0;
+  }
+
+  .auth-notice-card {
+    flex-direction: column;
   }
 
   .resume-modal-card {

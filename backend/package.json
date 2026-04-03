@@ -19,6 +19,7 @@
     "mongoose": "^8.14.1",
     "pdf-parse": "^1.1.1",
     "playwright": "^1.52.0",
-    "puppeteer": "^24.8.1"
+    "puppeteer": "^24.8.1",
+    "resend": "^6.10.0"
   }
 }

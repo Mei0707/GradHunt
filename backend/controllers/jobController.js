@@ -151,7 +151,7 @@ const searchJobs = async (req, res) => {
         jobType
       );
 
-      if (req.user && Array.isArray(jobData.jobs) && jobData.jobs.length > 0) {
+      if (req.user?.isEmailVerified && Array.isArray(jobData.jobs) && jobData.jobs.length > 0) {
         const appliedJobs = await AppliedJob.find({ user: req.user._id })
           .select('jobId url')
           .lean();

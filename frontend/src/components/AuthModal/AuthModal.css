@@ -19,3 +19,10 @@
   font-weight: 600;
   cursor: pointer;
 }
+
+.auth-dev-link {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-wrap: anywhere;
+}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import './AuthModal.css';
 
 const readJsonResponse = async (response) => {
@@ -11,23 +11,44 @@ const readJsonResponse = async (response) => {
   }
 };
 
-function AuthModal({ mode = 'login', onClose, onAuthSuccess }) {
+function AuthModal({ mode = 'login', actionToken = '', onClose, onAuthSuccess }) {
   const [currentMode, setCurrentMode] = useState(mode);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [devLink, setDevLink] = useState('');
 
   const isRegister = currentMode === 'register';
+  const isForgotPassword = currentMode === 'forgot-password';
+  const isResetPassword = currentMode === 'reset-password';
+
+  useEffect(() => {
+    setCurrentMode(mode);
+    setError('');
+    setSuccess('');
+    setDevLink('');
+  }, [mode]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
+    setSuccess('');
+    setDevLink('');
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(`http://localhost:3000/api/auth/${isRegister ? 'register' : 'login'}`, {
+      const endpoint = isRegister
+        ? 'register'
+        : isForgotPassword
+          ? 'forgot-password'
+          : isResetPassword
+            ? 'reset-password'
+            : 'login';
+      const response = await fetch(`http://localhost:3000/api/auth/${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -35,7 +56,11 @@ function AuthModal({ mode = 'login', onClose, onAuthSuccess }) {
         body: JSON.stringify(
           isRegister
             ? { name, email, password }
-            : { email, password }
+            : isForgotPassword
+              ? { email }
+              : isResetPassword
+                ? { token: actionToken, newPassword: password, confirmPassword }
+                : { email, password }
         ),
       });
 
@@ -45,7 +70,18 @@ function AuthModal({ mode = 'login', onClose, onAuthSuccess }) {
         throw new Error(data.message || data.error || `API error: ${response.status}`);
       }
 
-      onAuthSuccess(data);
+      if (isRegister || (!isForgotPassword && !isResetPassword)) {
+        onAuthSuccess(data);
+        return;
+      }
+
+      setSuccess(data.message || (isForgotPassword ? 'Password reset email sent.' : 'Password reset successfully.'));
+      if (data.devPreviewLink) {
+        setDevLink(data.devPreviewLink);
+      }
+      if (isResetPassword) {
+        setCurrentMode('login');
+      }
     } catch (submitError) {
       setError(submitError.message || 'Authentication failed.');
     } finally {
@@ -58,8 +94,24 @@ function AuthModal({ mode = 'login', onClose, onAuthSuccess }) {
       <div className="auth-modal-card" onClick={(event) => event.stopPropagation()}>
         <div className="resume-modal-header">
           <div>
-            <h2>{isRegister ? 'Create Account' : 'Log In'}</h2>
-            <p>{isRegister ? 'Save your resumes and application history.' : 'Sign in to access your profile features later.'}</p>
+            <h2>
+              {isRegister
+                ? 'Create Account'
+                : isForgotPassword
+                  ? 'Forgot Password'
+                  : isResetPassword
+                    ? 'Reset Password'
+                    : 'Log In'}
+            </h2>
+            <p>
+              {isRegister
+                ? 'Save your resumes and application history.'
+                : isForgotPassword
+                  ? 'Enter your email and we will send a reset link.'
+                  : isResetPassword
+                    ? 'Choose a new password for your account.'
+                    : 'Sign in to access your profile features later.'}
+            </p>
           </div>
           <button
             type="button"
@@ -85,47 +137,117 @@ function AuthModal({ mode = 'login', onClose, onAuthSuccess }) {
             </div>
           )}
 
-          <div className="mb-3">
-            <label htmlFor="authEmail" className="form-label">Email</label>
-            <input
-              id="authEmail"
-              type="email"
-              className="form-control"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-            />
-          </div>
+          {!isResetPassword && (
+            <div className="mb-3">
+              <label htmlFor="authEmail" className="form-label">Email</label>
+              <input
+                id="authEmail"
+                type="email"
+                className="form-control"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                required
+              />
+            </div>
+          )}
 
-          <div className="mb-3">
-            <label htmlFor="authPassword" className="form-label">Password</label>
-            <input
-              id="authPassword"
-              type="password"
-              className="form-control"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              minLength={8}
-              required
-            />
-          </div>
+          {!isForgotPassword && (
+            <div className="mb-3">
+              <label htmlFor="authPassword" className="form-label">
+                {isResetPassword ? 'New Password' : 'Password'}
+              </label>
+              <input
+                id="authPassword"
+                type="password"
+                className="form-control"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                minLength={8}
+                required
+              />
+            </div>
+          )}
+
+          {isResetPassword && (
+            <div className="mb-3">
+              <label htmlFor="authConfirmPassword" className="form-label">Confirm New Password</label>
+              <input
+                id="authConfirmPassword"
+                type="password"
+                className="form-control"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                minLength={8}
+                required
+              />
+            </div>
+          )}
 
           {error && <div className="alert alert-danger mb-3">{error}</div>}
+          {success && <div className="alert alert-success mb-3">{success}</div>}
+          {devLink && (
+            <div className="alert alert-secondary mb-3 auth-dev-link">
+              <span>Local preview link:</span>
+              <a href={devLink}>{devLink}</a>
+            </div>
+          )}
 
           <button type="submit" className="btn btn-primary w-100" disabled={isSubmitting}>
-            {isSubmitting ? 'Please wait...' : isRegister ? 'Create account' : 'Log in'}
+            {isSubmitting
+              ? 'Please wait...'
+              : isRegister
+                ? 'Create account'
+                : isForgotPassword
+                  ? 'Send reset link'
+                  : isResetPassword
+                    ? 'Reset password'
+                    : 'Log in'}
           </button>
 
-          <button
-            type="button"
-            className="auth-switch-button"
-            onClick={() => {
-              setCurrentMode(isRegister ? 'login' : 'register');
-              setError('');
-            }}
-          >
-            {isRegister ? 'Already have an account? Log in' : 'Need an account? Create one'}
-          </button>
+          {!isForgotPassword && !isResetPassword && (
+            <>
+              <button
+                type="button"
+                className="auth-switch-button"
+                onClick={() => {
+                  setCurrentMode(isRegister ? 'login' : 'register');
+                  setError('');
+                  setSuccess('');
+                }}
+              >
+                {isRegister ? 'Already have an account? Log in' : 'Need an account? Create one'}
+              </button>
+
+              {!isRegister && (
+                <button
+                  type="button"
+                  className="auth-switch-button"
+                  onClick={() => {
+                    setCurrentMode('forgot-password');
+                    setError('');
+                    setSuccess('');
+                  }}
+                >
+                  Forgot password?
+                </button>
+              )}
+            </>
+          )}
+
+          {(isForgotPassword || isResetPassword) && (
+            <button
+              type="button"
+              className="auth-switch-button"
+              onClick={() => {
+                setCurrentMode('login');
+                setError('');
+                setSuccess('');
+                setDevLink('');
+              }}
+            >
+              Back to log in
+            </button>
+          )}
         </form>
       </div>
     </div>

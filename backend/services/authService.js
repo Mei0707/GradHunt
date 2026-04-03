@@ -29,6 +29,11 @@ const hashPassword = (password) => {
   return `${salt}:${derivedKey}`;
 };
 
+const createOpaqueToken = () => crypto.randomBytes(32).toString('hex');
+
+const hashOpaqueToken = (token) =>
+  crypto.createHash('sha256').update(token).digest('hex');
+
 const verifyPassword = (password, storedHash) => {
   const [salt, originalHash] = (storedHash || '').split(':');
   if (!salt || !originalHash) {
@@ -85,4 +90,6 @@ module.exports = {
   verifyPassword,
   createToken,
   verifyToken,
+  createOpaqueToken,
+  hashOpaqueToken,
 };

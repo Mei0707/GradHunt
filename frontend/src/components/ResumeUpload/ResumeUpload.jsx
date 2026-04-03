@@ -86,15 +86,20 @@ function ResumeUpload({ onUploadSuccess, authToken = null, savedResumes = [], on
         };
 
         if (authToken) {
-          await fetch('http://localhost:3000/api/resume/save', {
+          const saveResponse = await fetch('http://localhost:3000/api/resume/save', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               Authorization: `Bearer ${authToken}`,
             },
             body: JSON.stringify(savedResumePayload),
-          }).catch(() => {});
-          onResumeHistoryUpdated?.();
+          });
+          const saveData = await readJsonResponse(saveResponse);
+          if (saveResponse.ok) {
+            onResumeHistoryUpdated?.();
+          } else if (saveData.message) {
+            setSuccessMessage(`Resume analyzed successfully. ${saveData.message}`);
+          }
         }
 
         if (onUploadSuccess) {
@@ -158,15 +163,20 @@ function ResumeUpload({ onUploadSuccess, authToken = null, savedResumes = [], on
       };
 
       if (authToken) {
-        await fetch('http://localhost:3000/api/resume/save', {
+        const saveResponse = await fetch('http://localhost:3000/api/resume/save', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${authToken}`,
           },
           body: JSON.stringify(completedResume),
-        }).catch(() => {});
-        onResumeHistoryUpdated?.();
+        });
+        const saveData = await readJsonResponse(saveResponse);
+        if (saveResponse.ok) {
+          onResumeHistoryUpdated?.();
+        } else if (saveData.message) {
+          setSuccessMessage(`${data.resume.originalName} uploaded and analyzed successfully. ${saveData.message}`);
+        }
       }
 
       if (onUploadSuccess) {

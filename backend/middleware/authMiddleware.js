@@ -31,7 +31,7 @@ const requireAuth = async (req, res, next) => {
     }
 
     const payload = verifyToken(token);
-    const user = await User.findById(payload.userId).select('_id name email passwordHash createdAt');
+    const user = await User.findById(payload.userId).select('_id name email isEmailVerified passwordHash createdAt');
 
     if (!user) {
       return res.status(401).json({
@@ -64,7 +64,7 @@ const optionalAuth = async (req, res, next) => {
     }
 
     const payload = verifyToken(token);
-    const user = await User.findById(payload.userId).select('_id name email createdAt');
+    const user = await User.findById(payload.userId).select('_id name email isEmailVerified createdAt');
 
     if (user) {
       req.user = user;
@@ -76,8 +76,27 @@ const optionalAuth = async (req, res, next) => {
   next();
 };
 
+const requireVerifiedEmail = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({
+      error: 'Authentication required',
+      message: 'Please log in to continue.',
+    });
+  }
+
+  if (!req.user.isEmailVerified) {
+    return res.status(403).json({
+      error: 'Email verification required',
+      message: 'Please verify your email address to use saved history and application tracking features.',
+    });
+  }
+
+  return next();
+};
+
 module.exports = {
   requireAuth,
   requireDatabaseConnection,
   optionalAuth,
+  requireVerifiedEmail,
 };

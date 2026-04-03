@@ -24,6 +24,8 @@ function App() {
   const [authState, setAuthState] = useState(null);
   const [authError, setAuthError] = useState(null);
   const [authModalMode, setAuthModalMode] = useState(null);
+  const [authModalToken, setAuthModalToken] = useState('');
+  const [authNotice, setAuthNotice] = useState({ type: null, message: '', link: '' });
   const [savedResumes, setSavedResumes] = useState([]);
   const [appliedJobs, setAppliedJobs] = useState([]);
   const [applyPromptJob, setApplyPromptJob] = useState(null);
@@ -37,6 +39,7 @@ function App() {
     confirmPassword: '',
   });
   const [passwordStatus, setPasswordStatus] = useState({ error: null, success: null });
+  const [verificationStatus, setVerificationStatus] = useState({ error: null, success: null, link: '' });
   const [isProfileSaving, setIsProfileSaving] = useState(false);
   const [isPasswordSaving, setIsPasswordSaving] = useState(false);
 
@@ -130,6 +133,10 @@ function App() {
 
       const data = await readJsonResponse(response);
       if (!response.ok) {
+        if (response.status === 403) {
+          setSavedResumes([]);
+          return;
+        }
         throw new Error(data.message || 'Failed to load saved resumes.');
       }
 
@@ -155,6 +162,10 @@ function App() {
 
       const data = await readJsonResponse(response);
       if (!response.ok) {
+        if (response.status === 403) {
+          setAppliedJobs([]);
+          return;
+        }
         throw new Error(data.message || 'Failed to load applied jobs.');
       }
 
@@ -202,6 +213,60 @@ function App() {
         });
     } catch {
       window.localStorage.removeItem(AUTH_STORAGE_KEY);
+    }
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const action = params.get('authAction');
+    const token = params.get('token');
+
+    if (!action || !token) {
+      return;
+    }
+
+    const clearAuthParams = () => {
+      const nextUrl = new URL(window.location.href);
+      nextUrl.searchParams.delete('authAction');
+      nextUrl.searchParams.delete('token');
+      window.history.replaceState({}, '', nextUrl.toString());
+    };
+
+    if (action === 'verify-email') {
+      fetch('http://localhost:3000/api/auth/verify-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ token }),
+      })
+        .then(async (response) => {
+          const data = await readJsonResponse(response);
+          if (!response.ok) {
+            throw new Error(data.message || 'Failed to verify email.');
+          }
+
+          setAuthNotice({ type: 'success', message: data.message, link: '' });
+          if (data.user) {
+            updateStoredAuthUser(data.user);
+          }
+          clearAuthParams();
+        })
+        .catch((verifyError) => {
+          setAuthNotice({
+            type: 'error',
+            message: verifyError.message || 'Failed to verify email.',
+            link: '',
+          });
+          clearAuthParams();
+        });
+      return;
+    }
+
+    if (action === 'reset-password') {
+      setAuthModalToken(token);
+      setAuthModalMode('reset-password');
+      clearAuthParams();
     }
   }, []);
 
@@ -353,11 +418,19 @@ function App() {
     };
   };
 
-  const handleAuthSuccess = ({ token, user }) => {
+  const handleAuthSuccess = ({ token, user, verificationMessage, devPreviewLink, message }) => {
     const nextAuthState = { token, user };
     setAuthState(nextAuthState);
     setAuthError(null);
     setAuthModalMode(null);
+    setAuthModalToken('');
+    setAuthNotice({
+      type: user?.isEmailVerified ? 'success' : 'info',
+      message: verificationMessage || message || (user?.isEmailVerified
+        ? 'Signed in successfully.'
+        : 'Signed in. Your email is not verified yet.'),
+      link: devPreviewLink || '',
+    });
     window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(nextAuthState));
     fetchSavedResumes(token);
     fetchAppliedJobs(token);
@@ -367,6 +440,7 @@ function App() {
     setProfileTab('overview');
     setProfileStatus({ error: null, success: null });
     setPasswordStatus({ error: null, success: null });
+    setVerificationStatus({ error: null, success: null, link: '' });
     setPasswordForm({
       currentPassword: '',
       newPassword: '',
@@ -417,6 +491,11 @@ function App() {
 
       updateStoredAuthUser(data.user);
       setProfileStatus({ error: null, success: data.message || 'Profile updated successfully.' });
+      setVerificationStatus({
+        error: null,
+        success: data.devPreviewLink ? 'Verification link generated for your updated email.' : null,
+        link: data.devPreviewLink || '',
+      });
     } catch (error) {
       setProfileStatus({ error: error.message || 'Failed to update profile.', success: null });
     } finally {
@@ -460,6 +539,44 @@ function App() {
     } finally {
       setIsPasswordSaving(false);
     }
+  };
+
+  const handleRequestVerification = async () => {
+    if (!authState?.token) {
+      return;
+    }
+
+    setVerificationStatus({ error: null, success: null, link: '' });
+
+    try {
+      const response = await fetch('http://localhost:3000/api/auth/request-verification', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${authState.token}`,
+        },
+      });
+
+      const data = await readJsonResponse(response);
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to send verification email.');
+      }
+
+      setVerificationStatus({
+        error: null,
+        success: data.message || 'Verification email sent.',
+        link: data.devPreviewLink || '',
+      });
+    } catch (error) {
+      setVerificationStatus({
+        error: error.message || 'Failed to send verification email.',
+        success: null,
+        link: '',
+      });
+    }
+  };
+
+  const dismissAuthNotice = () => {
+    setAuthNotice({ type: null, message: '', link: '' });
   };
 
   const handleLogout = () => {
@@ -507,6 +624,44 @@ function App() {
 
       <div className="container">
         {authError && <div className="alert alert-warning">{authError}</div>}
+        {authNotice.message && (
+          <div className={`auth-notice-card auth-notice-${authNotice.type || 'info'}`}>
+            <div className="auth-notice-copy">
+              <strong>
+                {authNotice.type === 'success'
+                  ? 'Account update complete'
+                  : authNotice.type === 'error'
+                    ? 'Action needed'
+                    : 'Account notice'}
+              </strong>
+              <p>{authNotice.message}</p>
+              <div className="auth-notice-actions">
+                {authNotice.link && (
+                  <a href={authNotice.link} className="btn btn-sm btn-outline-secondary">
+                    Open local preview link
+                  </a>
+                )}
+                {!authState?.user && (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-primary"
+                    onClick={() => setAuthModalMode('login')}
+                  >
+                    Log in
+                  </button>
+                )}
+              </div>
+            </div>
+            <button
+              type="button"
+              className="auth-notice-dismiss"
+              onClick={dismissAuthNotice}
+              aria-label="Dismiss auth notice"
+            >
+              ×
+            </button>
+          </div>
+        )}
         <SearchForm
           onSearch={(role, location, jobType) => searchJobs(role, location, 1, null, jobType)}
           onUploadClick={() => setIsResumeModalOpen(true)}
@@ -654,82 +809,142 @@ function App() {
               </div>
 
               {profileTab === 'overview' ? (
-                <>
-                  <div className="profile-summary-grid">
-                    <div className="profile-stat-card">
-                      <strong>{savedResumes.length}</strong>
-                      <span>Saved resumes</span>
+                authState.user.isEmailVerified ? (
+                  <>
+                    <div className="profile-summary-grid">
+                      <div className="profile-stat-card">
+                        <strong>{savedResumes.length}</strong>
+                        <span>Saved resumes</span>
+                      </div>
+                      <div className="profile-stat-card">
+                        <strong>{appliedJobs.length}</strong>
+                        <span>Applied jobs</span>
+                      </div>
+                      <div className="profile-stat-card profile-stat-card-wide">
+                        <strong>{authState.user.email}</strong>
+                        <span>Account email</span>
+                      </div>
+                      <div className="profile-stat-card">
+                        <strong>Verified</strong>
+                        <span>Email verification</span>
+                      </div>
+                      <div className="profile-stat-card">
+                        <strong>{new Date(authState.user.createdAt).toLocaleDateString()}</strong>
+                        <span>Member since</span>
+                      </div>
                     </div>
-                    <div className="profile-stat-card">
-                      <strong>{appliedJobs.length}</strong>
-                      <span>Applied jobs</span>
-                    </div>
-                    <div className="profile-stat-card">
-                      <strong>{authState.user.email}</strong>
-                      <span>Account email</span>
-                    </div>
-                    <div className="profile-stat-card">
-                      <strong>{new Date(authState.user.createdAt).toLocaleDateString()}</strong>
-                      <span>Member since</span>
-                    </div>
-                  </div>
 
-                  <div className="profile-section">
-                    <div className="resume-analysis-header">
-                      <div>
-                        <h2>Applied Job History</h2>
-                        <p>Jobs you have marked as applied.</p>
+                    <div className="profile-section">
+                      <div className="resume-analysis-header">
+                        <div>
+                          <h2>Applied Job History</h2>
+                          <p>Jobs you have marked as applied.</p>
+                        </div>
+                        <div className="resume-analysis-level">{appliedJobs.length} saved</div>
                       </div>
-                      <div className="resume-analysis-level">{appliedJobs.length} saved</div>
+                      {appliedJobs.length > 0 ? (
+                        <div className="applied-history-list">
+                          {appliedJobs.map((job) => (
+                            <a
+                              key={job.id}
+                              className="applied-history-item"
+                              href={job.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <strong>{job.title}</strong>
+                              <span>{job.company} · {job.location}</span>
+                              <small>Applied {new Date(job.appliedAt).toLocaleDateString()}</small>
+                            </a>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="alert alert-info profile-empty-state">
+                          No applied jobs yet. When you click Apply and confirm it, it will show up here.
+                        </div>
+                      )}
                     </div>
-                    {appliedJobs.length > 0 ? (
-                      <div className="applied-history-list">
-                        {appliedJobs.map((job) => (
-                          <a
-                            key={job.id}
-                            className="applied-history-item"
-                            href={job.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            <strong>{job.title}</strong>
-                            <span>{job.company} · {job.location}</span>
-                            <small>Applied {new Date(job.appliedAt).toLocaleDateString()}</small>
-                          </a>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="alert alert-info profile-empty-state">
-                        No applied jobs yet. When you click Apply and confirm it, it will show up here.
-                      </div>
-                    )}
-                  </div>
 
-                  <div className="profile-section">
-                    <div className="resume-analysis-header">
-                      <div>
-                        <h2>Saved Resumes</h2>
-                        <p>Your previously uploaded resumes.</p>
+                    <div className="profile-section">
+                      <div className="resume-analysis-header">
+                        <div>
+                          <h2>Saved Resumes</h2>
+                          <p>Your previously uploaded resumes.</p>
+                        </div>
+                        <div className="resume-analysis-level">{savedResumes.length} saved</div>
                       </div>
-                      <div className="resume-analysis-level">{savedResumes.length} saved</div>
+                      {savedResumes.length > 0 ? (
+                        <div className="applied-history-list">
+                          {savedResumes.map((resume) => (
+                            <div key={resume.id} className="applied-history-item">
+                              <strong>{resume.originalName}</strong>
+                              <span>{resume.analysis?.experience_level || 'Resume analysis available'}</span>
+                              <small>Uploaded {new Date(resume.createdAt).toLocaleDateString()}</small>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="alert alert-info profile-empty-state">
+                          No saved resumes yet. Upload one from the search form to store it in your profile.
+                        </div>
+                      )}
                     </div>
-                    {savedResumes.length > 0 ? (
-                      <div className="applied-history-list">
-                        {savedResumes.map((resume) => (
-                          <div key={resume.id} className="applied-history-item">
-                            <strong>{resume.originalName}</strong>
-                            <span>{resume.analysis?.experience_level || 'Resume analysis available'}</span>
-                            <small>Uploaded {new Date(resume.createdAt).toLocaleDateString()}</small>
-                          </div>
-                        ))}
+                  </>
+                ) : (
+                  <>
+                    <div className="profile-lock-hero">
+                      <div className="profile-lock-copy">
+                        <span className="profile-lock-pill">Verification pending</span>
+                        <h3>Verify your email to unlock your GradHunt profile</h3>
+                        <p>
+                          Saved resumes and applied-job history stay locked until your email is verified. Once you verify, we will start syncing your profile activity here.
+                        </p>
                       </div>
-                    ) : (
-                      <div className="alert alert-info profile-empty-state">
-                        No saved resumes yet. Upload one from the search form to store it in your profile.
+                      <div className="profile-lock-actions">
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          onClick={() => setProfileTab('settings')}
+                        >
+                          Go to settings
+                        </button>
                       </div>
-                    )}
-                  </div>
-                </>
+                    </div>
+
+                    <div className="profile-summary-grid profile-summary-grid-compact">
+                      <div className="profile-stat-card profile-stat-card-wide">
+                        <strong>{authState.user.email}</strong>
+                        <span>Account email</span>
+                      </div>
+                      <div className="profile-stat-card">
+                        <strong>Pending</strong>
+                        <span>Email verification</span>
+                      </div>
+                      <div className="profile-stat-card">
+                        <strong>{new Date(authState.user.createdAt).toLocaleDateString()}</strong>
+                        <span>Member since</span>
+                      </div>
+                    </div>
+
+                    <div className="profile-lock-grid">
+                      <div className="profile-lock-card">
+                        <div className="profile-lock-card-header">
+                          <h2>Applied Job History</h2>
+                          <span className="profile-lock-tag">Locked</span>
+                        </div>
+                        <p>Track jobs you applied to and keep them marked across future searches.</p>
+                      </div>
+
+                      <div className="profile-lock-card">
+                        <div className="profile-lock-card-header">
+                          <h2>Saved Resumes</h2>
+                          <span className="profile-lock-tag">Locked</span>
+                        </div>
+                        <p>Reuse your uploaded resumes without starting from scratch next time you visit.</p>
+                      </div>
+                    </div>
+                  </>
+                )
               ) : (
                 <div className="profile-settings-grid">
                   <div className="profile-settings-card">
@@ -770,6 +985,35 @@ function App() {
                         </button>
                       </div>
                     </form>
+                  </div>
+
+                  <div className="profile-settings-card">
+                    <div className="resume-analysis-header">
+                      <div>
+                        <h2>Email Verification</h2>
+                        <p>Verify your email so your account recovery flow stays secure.</p>
+                      </div>
+                    </div>
+                    <div className="profile-verification-row">
+                      <span className={`profile-verification-badge ${authState.user.isEmailVerified ? 'profile-verified' : 'profile-unverified'}`}>
+                        {authState.user.isEmailVerified ? 'Verified' : 'Not verified'}
+                      </span>
+                    </div>
+                    {verificationStatus.error && <div className="alert alert-danger">{verificationStatus.error}</div>}
+                    {verificationStatus.success && <div className="alert alert-success">{verificationStatus.success}</div>}
+                    {verificationStatus.link && (
+                      <div className="alert alert-secondary auth-dev-link">
+                        <span>Local preview link:</span>
+                        <a href={verificationStatus.link}>{verificationStatus.link}</a>
+                      </div>
+                    )}
+                    {!authState.user.isEmailVerified && (
+                      <div className="profile-form-actions">
+                        <button type="button" className="btn btn-primary" onClick={handleRequestVerification}>
+                          Send verification email
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   <div className="profile-settings-card">
@@ -974,7 +1218,11 @@ function App() {
       {authModalMode && (
         <AuthModal
           mode={authModalMode}
-          onClose={() => setAuthModalMode(null)}
+          actionToken={authModalToken}
+          onClose={() => {
+            setAuthModalMode(null);
+            setAuthModalToken('');
+          }}
           onAuthSuccess={handleAuthSuccess}
         />
       )}
