@@ -16,8 +16,10 @@ function App() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [currentSearch, setCurrentSearch] = useState(DEFAULT_SEARCH);
+  const [searchedRoles, setSearchedRoles] = useState([DEFAULT_SEARCH.role]);
   const [uploadedResume, setUploadedResume] = useState(null);
   const [isResumeModalOpen, setIsResumeModalOpen] = useState(false);
+  const [resumeIntentPrompt, setResumeIntentPrompt] = useState(null);
   const [selectedJob, setSelectedJob] = useState(null);
   const [isJobDetailsLoading, setIsJobDetailsLoading] = useState(false);
   const [jobDetailsError, setJobDetailsError] = useState(null);
@@ -96,6 +98,7 @@ function App() {
       setCount(data.count || 0);
       setCurrentPage(data.currentPage || page);
       setTotalPages(data.totalPages || 1);
+      setSearchedRoles(data.searchedRoles || [role]);
 
       // Save current search terms for pagination
       setCurrentSearch({ role, location, jobType, hideApplied });
@@ -104,9 +107,10 @@ function App() {
       if (error instanceof TypeError && error.message === 'Failed to fetch') {
         setError('Could not reach the backend at http://localhost:3000. Please make sure the backend is running and then try again.');
       } else {
-        setError(error.message);
+      setError(error.message);
       }
       setJobs([]);
+      setSearchedRoles([role]);
     } finally {
       setIsLoading(false);
     }
@@ -409,7 +413,7 @@ function App() {
     await saveAppliedJob(job);
   };
 
-  const getResumeDrivenSearch = (resume) => {
+  const getResumeDrivenSearch = (resume, preferredJobType = currentSearch.jobType || DEFAULT_SEARCH.jobType) => {
     const analysis = resume?.analysis;
     if (!analysis) {
       return currentSearch;
@@ -429,9 +433,27 @@ function App() {
     return {
       role: suggestedRole,
       location: suggestedLocation,
-      jobType: currentSearch.jobType || DEFAULT_SEARCH.jobType,
+      jobType: preferredJobType,
       hideApplied: currentSearch.hideApplied ?? DEFAULT_SEARCH.hideApplied,
     };
+  };
+
+  const handleResumeIntentChoice = (jobType) => {
+    if (!resumeIntentPrompt?.resume) {
+      return;
+    }
+
+    const resume = resumeIntentPrompt.resume;
+    setResumeIntentPrompt(null);
+    const resumeSearch = getResumeDrivenSearch(resume, jobType);
+    searchJobs(
+      resumeSearch.role,
+      resumeSearch.location,
+      1,
+      resume.analysis,
+      resumeSearch.jobType,
+      resumeSearch.hideApplied
+    );
   };
 
   const handleAuthSuccess = ({ token, user, verificationMessage, devPreviewLink, message }) => {
@@ -756,7 +778,7 @@ function App() {
               <p>Showing page {currentPage} of {totalPages}</p>
               {uploadedResume?.analysis && (
                 <p className="match-mode-note">
-                  Resume-driven search is active: using <strong>{currentSearch.role}</strong> in <strong>{currentSearch.location}</strong> for <strong>{currentSearch.jobType}</strong> roles{currentSearch.hideApplied ? ', hiding applied jobs' : ''}.
+                  Resume-driven search is active: using <strong>{searchedRoles.join(', ')}</strong> in <strong>{currentSearch.location}</strong> for <strong>{currentSearch.jobType}</strong> roles{currentSearch.hideApplied ? ', hiding applied jobs' : ''}.
                 </p>
               )}
             </div>
@@ -1118,17 +1140,56 @@ function App() {
               onUploadSuccess={(resume) => {
                 setUploadedResume(resume);
                 setIsResumeModalOpen(false);
-                const resumeSearch = getResumeDrivenSearch(resume);
-                searchJobs(
-                  resumeSearch.role,
-                  resumeSearch.location,
-                  1,
-                  resume.analysis,
-                  resumeSearch.jobType,
-                  resumeSearch.hideApplied
-                );
+                setResumeIntentPrompt({ resume });
               }}
             />
+          </div>
+        </div>
+      )}
+
+      {resumeIntentPrompt && (
+        <div className="resume-modal-backdrop" onClick={() => setResumeIntentPrompt(null)}>
+          <div
+            className="resume-modal-card apply-modal-card"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="resume-modal-header">
+              <div>
+                <h2>What are you looking for right now?</h2>
+                <p>
+                  Your resume can fit multiple paths. Choose the search direction you want GradHunt to focus on for this search.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="resume-modal-close"
+                onClick={() => setResumeIntentPrompt(null)}
+                aria-label="Close resume intent prompt"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="job-details-body">
+              <div className="resume-intent-grid">
+                <button
+                  type="button"
+                  className="resume-intent-card"
+                  onClick={() => handleResumeIntentChoice('intern')}
+                >
+                  <strong>Internships</strong>
+                  <span>Focus on internship and co-op opportunities.</span>
+                </button>
+                <button
+                  type="button"
+                  className="resume-intent-card"
+                  onClick={() => handleResumeIntentChoice('full-time')}
+                >
+                  <strong>New Grad / Full-time</strong>
+                  <span>Focus on entry-level and full-time roles.</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

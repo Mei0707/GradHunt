@@ -326,6 +326,41 @@
   gap: 12px;
 }
 
+.resume-intent-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.resume-intent-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+  padding: 18px;
+  border-radius: 16px;
+  border: 1px solid var(--color-border);
+  background: rgba(201, 173, 167, 0.1);
+  color: var(--color-ink);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.resume-intent-card:hover {
+  transform: translateY(-1px);
+  border-color: var(--color-slate);
+  box-shadow: 0 14px 28px rgba(34, 34, 59, 0.1);
+}
+
+.resume-intent-card strong {
+  font-size: 1.1rem;
+}
+
+.resume-intent-card span {
+  color: var(--color-slate);
+  line-height: 1.5;
+}
+
 .profile-summary-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -569,6 +604,10 @@
   }
 
   .profile-settings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .resume-intent-grid {
     grid-template-columns: 1fr;
   }
 

@@ -178,6 +178,13 @@ const searchJobs = async (req, res) => {
           })),
         };
       }
+
+      if (!Array.isArray(jobData.searchedRoles) || jobData.searchedRoles.length === 0) {
+        jobData = {
+          ...jobData,
+          searchedRoles: [role],
+        };
+      }
     } catch (error) {
       console.error('Error from job aggregation service:', error);
       // Provide fallback data if the service fails

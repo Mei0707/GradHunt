@@ -6,9 +6,12 @@ const PAGE_SIZE = 18;
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const EMPTY_CACHE_TTL_MS = 30 * 1000;
 const jobSearchCache = new Map();
+const MAX_RESUME_SEARCH_ROLES = 3;
 
 const buildCacheKey = (role, location, jobType) =>
   `${role.trim().toLowerCase()}::${location.trim().toLowerCase()}::${jobType.trim().toLowerCase()}`;
+
+const normalizeText = (value = '') => value.toLowerCase().trim();
 
 const INTERNSHIP_PATTERN = /\b(intern|internship|co-?op|apprentice|summer intern|fall intern)\b/i;
 
@@ -42,6 +45,73 @@ const paginateJobs = (jobs, page) => {
     currentPage: page,
     pageSize: PAGE_SIZE,
   };
+};
+
+const dedupeJobs = (jobs) => {
+  const seen = new Set();
+
+  return jobs.filter((job) => {
+    const key = [
+      normalizeText(job.url || ''),
+      normalizeText(job.title || ''),
+      normalizeText(job.company || ''),
+      normalizeText(job.location || ''),
+    ].join('::');
+
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+};
+
+const buildResumeSearchRoles = (baseRole, resumeProfile, jobType = 'full-time') => {
+  if (!resumeProfile) {
+    return [baseRole];
+  }
+
+  const candidateRoles = [
+    baseRole,
+    ...(resumeProfile.suggested_search_keywords || []),
+    ...(resumeProfile.target_roles || []),
+  ];
+  const dedupedRoles = [];
+
+  for (const role of candidateRoles) {
+    const cleaned = (role || '').trim().replace(/\s+/g, ' ');
+    if (!cleaned) {
+      continue;
+    }
+
+    const hasInternHint = /\b(intern|internship|co-?op)\b/i.test(cleaned);
+
+    if (jobType === 'full-time' && hasInternHint) {
+      continue;
+    }
+
+    const normalized = normalizeText(cleaned);
+    if (dedupedRoles.some((existingRole) => normalizeText(existingRole) === normalized)) {
+      continue;
+    }
+
+    if (jobType === 'intern' && !/\b(intern|internship|co-?op)\b/i.test(cleaned)) {
+      dedupedRoles.push(`${cleaned} intern`);
+    } else {
+      dedupedRoles.push(cleaned);
+    }
+  }
+
+  if (dedupedRoles.length === 0) {
+    if (jobType === 'intern' && !/\b(intern|internship|co-?op)\b/i.test(baseRole)) {
+      return [`${baseRole} intern`];
+    }
+
+    return [baseRole];
+  }
+
+  return dedupedRoles.slice(0, MAX_RESUME_SEARCH_ROLES);
 };
 
 const getCachedJobs = async (role, location, jobType = 'full-time') => {
@@ -91,6 +161,21 @@ const getCachedJobs = async (role, location, jobType = 'full-time') => {
   }
 };
 
+const getJobsForSearchRoles = async (roles, location, jobType = 'full-time') => {
+  const roleList = Array.isArray(roles) && roles.length > 0 ? roles : ['software engineer'];
+  const results = await Promise.all(
+    roleList.map(async (role) => {
+      const jobs = await getCachedJobs(role, location, jobType);
+      return jobs.map((job) => ({
+        ...job,
+        searchRole: role,
+      }));
+    })
+  );
+
+  return dedupeJobs(results.flat());
+};
+
 /**
  * Gets aggregated job listings from multiple company career sites
  * @param {string} role - Job role to search for
@@ -110,14 +195,19 @@ const getAggregatedJobs = async (
     console.log(`Aggregating jobs for: ${role} in ${location}, page ${page}, type ${jobType}`);
 
     const currentPage = parseInt(page);
-    const scrapedJobs = await getCachedJobs(role, location, jobType);
+    const searchedRoles = buildResumeSearchRoles(role, resumeProfile, jobType);
+    console.log(`Using search roles: ${searchedRoles.join(', ')}`);
+    const scrapedJobs = await getJobsForSearchRoles(searchedRoles, location, jobType);
     const filteredJobs = filterJobsByType(scrapedJobs, jobType);
     const rankedJobs = rankJobsForResume(filteredJobs, resumeProfile);
     const visibleJobs = options.hideApplied
       ? filterAppliedJobs(rankedJobs, options.appliedJobIds, options.appliedJobUrls)
       : rankedJobs;
 
-    return paginateJobs(visibleJobs, currentPage);
+    return {
+      ...paginateJobs(visibleJobs, currentPage),
+      searchedRoles,
+    };
   } catch (error) {
     console.error('Error in job aggregation:', error);
     // Return empty results on error
