@@ -7,7 +7,7 @@ import ResumeUpload from './components/ResumeUpload/ResumeUpload';
 import AuthModal from './components/AuthModal/AuthModal';
 
 function App() {
-  const DEFAULT_SEARCH = { role: 'software engineer', location: 'New York', jobType: 'full-time' };
+  const DEFAULT_SEARCH = { role: 'software engineer', location: 'New York', jobType: 'full-time', hideApplied: false };
   const AUTH_STORAGE_KEY = 'gradhunt-auth';
   const [jobs, setJobs] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -52,11 +52,18 @@ function App() {
     }
   };
 
-  const searchJobs = async (role, location, page = 1, resumeProfileOverride = null, jobType = currentSearch.jobType || DEFAULT_SEARCH.jobType) => {
+  const searchJobs = async (
+    role,
+    location,
+    page = 1,
+    resumeProfileOverride = null,
+    jobType = currentSearch.jobType || DEFAULT_SEARCH.jobType,
+    hideApplied = currentSearch.hideApplied ?? DEFAULT_SEARCH.hideApplied
+  ) => {
     setIsLoading(true);
     setError(null);
     
-    console.log(`Searching for ${role} in ${location}, page ${page}, type ${jobType}`);
+    console.log(`Searching for ${role} in ${location}, page ${page}, type ${jobType}, hideApplied ${hideApplied}`);
 
     try {
       const payload = {
@@ -64,6 +71,7 @@ function App() {
         location,
         page,
         jobType,
+        hideApplied,
         resumeProfile: resumeProfileOverride || uploadedResume?.analysis || null,
       };
       console.log('Search payload:', payload);
@@ -90,7 +98,7 @@ function App() {
       setTotalPages(data.totalPages || 1);
 
       // Save current search terms for pagination
-      setCurrentSearch({ role, location, jobType });
+      setCurrentSearch({ role, location, jobType, hideApplied });
     } catch (error) {
       console.error('Search error:', error);
       if (error instanceof TypeError && error.message === 'Failed to fetch') {
@@ -110,12 +118,19 @@ function App() {
     // Scroll to top when changing pages
     window.scrollTo(0, 0);
     
-    searchJobs(currentSearch.role, currentSearch.location, newPage, null, currentSearch.jobType);
+    searchJobs(
+      currentSearch.role,
+      currentSearch.location,
+      newPage,
+      null,
+      currentSearch.jobType,
+      currentSearch.hideApplied
+    );
   };
 
   useEffect(() => {
     // Initial search
-    searchJobs(DEFAULT_SEARCH.role, DEFAULT_SEARCH.location);
+    searchJobs(DEFAULT_SEARCH.role, DEFAULT_SEARCH.location, 1, null, DEFAULT_SEARCH.jobType, DEFAULT_SEARCH.hideApplied);
   }, []);
 
   const fetchSavedResumes = async (token) => {
@@ -415,6 +430,7 @@ function App() {
       role: suggestedRole,
       location: suggestedLocation,
       jobType: currentSearch.jobType || DEFAULT_SEARCH.jobType,
+      hideApplied: currentSearch.hideApplied ?? DEFAULT_SEARCH.hideApplied,
     };
   };
 
@@ -663,12 +679,13 @@ function App() {
           </div>
         )}
         <SearchForm
-          onSearch={(role, location, jobType) => searchJobs(role, location, 1, null, jobType)}
+          onSearch={(role, location, jobType, hideApplied) => searchJobs(role, location, 1, null, jobType, hideApplied)}
           onUploadClick={() => setIsResumeModalOpen(true)}
           uploadedResumeName={uploadedResume?.originalName}
           initialRole={currentSearch.role}
           initialLocation={currentSearch.location}
           initialJobType={currentSearch.jobType}
+          initialHideApplied={currentSearch.hideApplied}
         />
 
         {uploadedResume?.analysis && (
@@ -739,7 +756,7 @@ function App() {
               <p>Showing page {currentPage} of {totalPages}</p>
               {uploadedResume?.analysis && (
                 <p className="match-mode-note">
-                  Resume-driven search is active: using <strong>{currentSearch.role}</strong> in <strong>{currentSearch.location}</strong> for <strong>{currentSearch.jobType}</strong> roles.
+                  Resume-driven search is active: using <strong>{currentSearch.role}</strong> in <strong>{currentSearch.location}</strong> for <strong>{currentSearch.jobType}</strong> roles{currentSearch.hideApplied ? ', hiding applied jobs' : ''}.
                 </p>
               )}
             </div>
@@ -1102,7 +1119,14 @@ function App() {
                 setUploadedResume(resume);
                 setIsResumeModalOpen(false);
                 const resumeSearch = getResumeDrivenSearch(resume);
-                searchJobs(resumeSearch.role, resumeSearch.location, 1, resume.analysis, resumeSearch.jobType);
+                searchJobs(
+                  resumeSearch.role,
+                  resumeSearch.location,
+                  1,
+                  resume.analysis,
+                  resumeSearch.jobType,
+                  resumeSearch.hideApplied
+                );
               }}
             />
           </div>

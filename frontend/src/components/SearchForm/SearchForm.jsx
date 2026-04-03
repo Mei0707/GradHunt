@@ -9,10 +9,12 @@ function SearchForm({
   initialRole = 'software engineer',
   initialLocation = 'New York',
   initialJobType = 'full-time',
+  initialHideApplied = false,
 }) {
   const [role, setRole] = useState(initialRole);
   const [location, setLocation] = useState(initialLocation);
   const [jobType, setJobType] = useState(initialJobType);
+  const [hideApplied, setHideApplied] = useState(initialHideApplied);
 
   useEffect(() => {
     setRole(initialRole);
@@ -26,10 +28,14 @@ function SearchForm({
     setJobType(initialJobType);
   }, [initialJobType]);
 
+  useEffect(() => {
+    setHideApplied(initialHideApplied);
+  }, [initialHideApplied]);
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    console.log('Form submitted with:', { role, location, jobType });
-    onSearch(role, location, jobType);
+    console.log('Form submitted with:', { role, location, jobType, hideApplied });
+    onSearch(role, location, jobType, hideApplied);
   };
 
   return (
@@ -86,6 +92,20 @@ function SearchForm({
               {uploadedResumeName ? 'Update Resume' : 'Upload Resume'}
             </button>
           </div>
+        </div>
+        <div className="col-12">
+          <label className="search-checkbox">
+            <input
+              type="checkbox"
+              checked={hideApplied}
+              onChange={(e) => {
+                const nextHideApplied = e.target.checked;
+                setHideApplied(nextHideApplied);
+                onSearch(role, location, jobType, nextHideApplied);
+              }}
+            />
+            <span>Hide jobs I already applied to</span>
+          </label>
         </div>
       </form>
 

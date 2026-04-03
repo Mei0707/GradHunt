@@ -22,6 +22,14 @@ const filterJobsByType = (jobs, jobType = 'full-time') => {
   return jobs;
 };
 
+const filterAppliedJobs = (jobs, appliedJobIds = new Set(), appliedJobUrls = new Set()) => {
+  if ((!appliedJobIds || appliedJobIds.size === 0) && (!appliedJobUrls || appliedJobUrls.size === 0)) {
+    return jobs;
+  }
+
+  return jobs.filter((job) => !appliedJobIds.has(job.id) && !appliedJobUrls.has(job.url));
+};
+
 const paginateJobs = (jobs, page) => {
   const startIndex = (page - 1) * PAGE_SIZE;
   const paginatedJobs = jobs.slice(startIndex, startIndex + PAGE_SIZE);
@@ -90,7 +98,14 @@ const getCachedJobs = async (role, location, jobType = 'full-time') => {
  * @param {number} page - Page number for pagination
  * @returns {Object} - Object containing jobs and pagination info
  */
-const getAggregatedJobs = async (role, location, page = 1, resumeProfile = null, jobType = 'full-time') => {
+const getAggregatedJobs = async (
+  role,
+  location,
+  page = 1,
+  resumeProfile = null,
+  jobType = 'full-time',
+  options = {}
+) => {
   try {
     console.log(`Aggregating jobs for: ${role} in ${location}, page ${page}, type ${jobType}`);
 
@@ -98,8 +113,11 @@ const getAggregatedJobs = async (role, location, page = 1, resumeProfile = null,
     const scrapedJobs = await getCachedJobs(role, location, jobType);
     const filteredJobs = filterJobsByType(scrapedJobs, jobType);
     const rankedJobs = rankJobsForResume(filteredJobs, resumeProfile);
+    const visibleJobs = options.hideApplied
+      ? filterAppliedJobs(rankedJobs, options.appliedJobIds, options.appliedJobUrls)
+      : rankedJobs;
 
-    return paginateJobs(rankedJobs, currentPage);
+    return paginateJobs(visibleJobs, currentPage);
   } catch (error) {
     console.error('Error in job aggregation:', error);
     // Return empty results on error

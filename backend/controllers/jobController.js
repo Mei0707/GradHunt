@@ -136,28 +136,40 @@ const searchJobs = async (req, res) => {
       page = '1',
       resumeProfile = null,
       jobType = 'full-time',
+      hideApplied = false,
     } = requestSource;
+    const shouldHideApplied = hideApplied === true || hideApplied === 'true';
     
-    console.log(`Searching for ${role} in ${location}, page ${page}, type ${jobType}`);
+    console.log(`Searching for ${role} in ${location}, page ${page}, type ${jobType}, hideApplied ${shouldHideApplied}`);
     
     // Try to get job data
     let jobData;
     try {
+      let appliedJobIds = new Set();
+      let appliedJobUrls = new Set();
+
+      if (req.user?.isEmailVerified) {
+        const appliedJobs = await AppliedJob.find({ user: req.user._id })
+          .select('jobId url')
+          .lean();
+        appliedJobIds = new Set(appliedJobs.map((job) => job.jobId));
+        appliedJobUrls = new Set(appliedJobs.map((job) => job.url));
+      }
+
       jobData = await jobAggregationService.getAggregatedJobs(
         role, 
         location, 
         parseInt(page),
         resumeProfile,
-        jobType
+        jobType,
+        {
+          hideApplied: shouldHideApplied,
+          appliedJobIds,
+          appliedJobUrls,
+        }
       );
 
       if (req.user?.isEmailVerified && Array.isArray(jobData.jobs) && jobData.jobs.length > 0) {
-        const appliedJobs = await AppliedJob.find({ user: req.user._id })
-          .select('jobId url')
-          .lean();
-        const appliedJobIds = new Set(appliedJobs.map((job) => job.jobId));
-        const appliedJobUrls = new Set(appliedJobs.map((job) => job.url));
-
         jobData = {
           ...jobData,
           jobs: jobData.jobs.map((job) => ({

@@ -51,6 +51,20 @@
     font-size: 0.95rem;
   }
 
+  .search-checkbox {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--color-slate);
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .search-checkbox input {
+    width: 16px;
+    height: 16px;
+  }
+
   @media (max-width: 767px) {
     .search-actions {
       flex-direction: column;

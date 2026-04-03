@@ -6,6 +6,26 @@ import time
 import sys
 
 REQUEST_TIMEOUT_SECONDS = 15
+PAGE_SIZE = 10
+MAX_LIST_RETRIES = 2
+MAX_DETAIL_RETRIES = 1
+
+def request_with_backoff(url, headers, timeout, max_retries=0, label="request"):
+    retry_delay_seconds = 2
+
+    for attempt in range(max_retries + 1):
+        response = requests.get(url, headers=headers, timeout=timeout)
+
+        if response.status_code != 429:
+            return response
+
+        print(f"{label} rate limited with status 429 (attempt {attempt + 1}/{max_retries + 1})")
+
+        if attempt == max_retries:
+            return response
+
+        time.sleep(retry_delay_seconds + random.uniform(0.5, 1.2))
+        retry_delay_seconds *= 2
 
 def scrape_linkedin_jobs(title, location, num_jobs=25):
     """
@@ -15,9 +35,10 @@ def scrape_linkedin_jobs(title, location, num_jobs=25):
     
     # Empty list to store all jobs
     all_jobs = []
+    seen_job_ids = set()
     
     # Scrape multiple pages
-    for start in range(0, num_jobs, 25):
+    for start in range(0, num_jobs, PAGE_SIZE):
         list_url = f"https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords={title}&location={location}&start={start}"
         
         # Send a get request to url with a user agent to avoid blocking
@@ -27,7 +48,13 @@ def scrape_linkedin_jobs(title, location, num_jobs=25):
         }
         
         print(f"Requesting: {list_url}")
-        response = requests.get(list_url, headers=headers, timeout=REQUEST_TIMEOUT_SECONDS)
+        response = request_with_backoff(
+            list_url,
+            headers,
+            REQUEST_TIMEOUT_SECONDS,
+            MAX_LIST_RETRIES,
+            "LinkedIn jobs list request"
+        )
         
         # Check if request was successful
         if response.status_code != 200:
@@ -52,7 +79,9 @@ def scrape_linkedin_jobs(title, location, num_jobs=25):
                 base_card_div = job.find("div", {"class": "base-card"})
                 if base_card_div and base_card_div.get("data-entity-urn"):
                     job_id = base_card_div.get("data-entity-urn").split(":")[-1]
-                    id_list.append(job_id)
+                    if job_id not in seen_job_ids:
+                        id_list.append(job_id)
+                        seen_job_ids.add(job_id)
             except Exception as e:
                 print(f"Error extracting job ID: {e}")
         
@@ -62,9 +91,15 @@ def scrape_linkedin_jobs(title, location, num_jobs=25):
                 job_url = f"https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/{job_id}"
                 
                 # Keep a short delay to reduce blocking without making the scrape too slow.
-                time.sleep(random.uniform(0.2, 0.6))
+                time.sleep(random.uniform(0.1, 0.25))
                 
-                job_response = requests.get(job_url, headers=headers, timeout=REQUEST_TIMEOUT_SECONDS)
+                job_response = request_with_backoff(
+                    job_url,
+                    headers,
+                    REQUEST_TIMEOUT_SECONDS,
+                    MAX_DETAIL_RETRIES,
+                    f"LinkedIn job detail request {job_id}"
+                )
                 
                 if job_response.status_code != 200:
                     print(f"Failed to fetch job {job_id}: Status code {job_response.status_code}")
@@ -123,12 +158,18 @@ def scrape_linkedin_jobs(title, location, num_jobs=25):
                 
                 all_jobs.append(job_post)
                 print(f"Processed job: {job_post['title']} at {job_post['company']}")
+
+                if len(all_jobs) >= num_jobs:
+                    break
                 
             except Exception as e:
                 print(f"Error processing job {job_id}: {e}")
         
         # Print progress
         print(f"Scraped {len(all_jobs)} jobs so far")
+
+        if len(all_jobs) >= num_jobs:
+            break
     
     # Return the results as JSON
     return all_jobs
