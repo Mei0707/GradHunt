@@ -1,278 +1,801 @@
 # GradHunt
 
-GradHunt is a full-stack job search web app for interns and new grads. It scrapes jobs from multiple sources, lets users upload a resume for AI analysis, recommends and ranks jobs against that resume, and provides account features like saved resumes, applied-job history, email verification, and password reset.
+> AI-enhanced job search and application support platform for interns, students, and new graduates.
 
-## What It Does
+GradHunt is a full-stack web application that helps early-career candidates discover, evaluate, and manage job opportunities more efficiently. It aggregates jobs from multiple sources, analyzes uploaded resumes, ranks opportunities using a hybrid recommendation system, and supports the application process with AI-powered tools like personalized cover letter generation.
 
-- Search tech jobs by role, location, and job type
-- Aggregate jobs from:
-  - LinkedIn
-  - Indeed
-  - ZipRecruiter
-- Upload a resume and analyze it with OpenAI
-- Use resume analysis to:
-  - suggest better search roles
-  - search across multiple related role titles
-  - rank jobs by resume match score
-- Hide jobs the user has already marked as applied
-- Save resume history and applied-job history for verified users
-- Support account creation, login/logout, forgot password, and email verification
+---
 
-## Current Product Features
+## Overview
 
-### Job Search
+Job searching for internships and new graduate roles is often repetitive and fragmented. Students typically search across multiple job boards, manually compare listings, repeatedly upload resumes, and spend time deciding which roles are actually a good fit.
 
-- Default search role is `software engineer`
-- Filter by:
-  - location
-  - `full-time` or `intern`
-  - hide already applied jobs
-- Pagination is enabled
-- Search results are cached on the backend to avoid re-scraping when changing pages
+GradHunt was built to reduce that friction by combining:
 
-### Resume Features
+* **Multi-source job aggregation**
+* **Resume-based personalization**
+* **Hybrid recommendation and ranking**
+* **Application tracking**
+* **AI-assisted application support**
 
-- Upload resume files:
-  - `pdf`
-  - `doc`
-  - `docx`
-  - `txt`
-- Extract resume text and analyze it with OpenAI
-- Generate structured resume data such as:
-  - target roles
-  - skills
-  - tools/frameworks
-  - strengths
-  - preferred locations
-  - suggested search keywords
-- Resume-driven search can search multiple related role titles instead of only one exact title
+The goal is not just to show more jobs, but to show **better and more relevant jobs** with less repeated effort.
 
-### Matching and Ranking
+---
 
-- Jobs are ranked against the uploaded resume
-- Match score considers:
-  - title and role alignment
-  - skill overlap
-  - tool/framework overlap
-  - preferred location
-  - experience-level fit
-  - strength overlap
-- Search results can include resume-driven role variants for broader recommendations
+## Key Features
 
-### Account Features
+### 1) Multi-Source Job Search
 
-- Register and log in with email/password
-- Change password
-- Forgot password / reset password flow
-- Email verification flow
-- Saved resumes and applied-job history are available for verified users
-- Profile modal includes:
-  - overview
-  - settings
-  - saved resume history
-  - applied-job history
+GradHunt aggregates internship and entry-level jobs from multiple external sources, including:
+
+* LinkedIn
+* Indeed
+* ZipRecruiter
+
+Users can search by:
+
+* **Role / keyword**
+* **Location**
+* **Job type** (`intern`, `full-time`)
+
+This provides a more complete search experience than relying on a single platform.
+
+---
+
+### 2) Resume Upload and AI Resume Analysis
+
+Users can upload resumes in common formats such as:
+
+* `pdf`
+* `doc`
+* `docx`
+* `txt`
+
+After upload, the backend extracts text and sends it through an AI analysis pipeline to generate a structured candidate profile.
+
+The extracted profile includes signals such as:
+
+* target roles
+* experience level
+* technical skills
+* tools and frameworks
+* education
+* preferred locations
+* suggested search keywords
+
+This profile becomes the foundation for personalized search and recommendation.
+
+---
+
+### 3) Resume-Driven Job Recommendation
+
+Instead of relying only on exact keyword matching, GradHunt ranks jobs using a **hybrid recommendation model** that combines:
+
+* **Heuristic matching** (explicit signals)
+* **Semantic similarity** (embedding-based relevance)
+
+This allows the platform to recommend jobs that are not just textually similar, but also contextually aligned with the candidate’s background.
+
+---
+
+### 4) AI Cover Letter Generation
+
+Once a resume has been uploaded and analyzed, users can generate a formal cover letter for a selected job.
+
+The cover letter is generated using:
+
+* the structured resume profile
+* selected job metadata
+* job description content
+
+This helps reduce repetitive writing effort during the application process.
+
+---
+
+### 5) Applied Job Tracking
+
+GradHunt supports lightweight job application management by allowing users to:
+
+* mark jobs as applied
+* store applied-job history
+* review previous applications
+* hide previously applied jobs from future searches
+
+This helps users avoid duplicate effort during long job searches.
+
+---
+
+### 6) Authentication and Account Features
+
+GradHunt includes standard account and security workflows such as:
+
+* user registration and login
+* email verification
+* password reset
+* password change
+* saved resume history
+* profile management
+
+---
+
+## System Architecture
+
+GradHunt follows a **client-server architecture** with a modular backend.
+
+### Frontend
+
+Built with:
+
+* **React**
+* **Vite**
+* **CSS**
+
+Frontend responsibilities include:
+
+* rendering job search UI
+* managing filters and pagination
+* resume upload flow
+* displaying match results
+* cover letter interaction
+* authentication state handling
+
+Example UI modules:
+
+* `SearchForm`
+* `JobCard`
+* `Pagination`
+* `ResumeUpload`
+* `AuthModal`
+
+---
+
+### Backend
+
+Built with:
+
+* **Node.js**
+* **Express**
+
+Backend responsibilities include:
+
+* handling API requests
+* orchestrating scrapers
+* processing resume uploads
+* running recommendation logic
+* managing authentication and account workflows
+
+Representative backend modules:
+
+* `jobController.js`
+* `resumeController.js`
+* `authController.js`
+
+---
+
+### Database
+
+Built with:
+
+* **MongoDB**
+* **Mongoose**
+
+Used to persist:
+
+* user accounts
+* saved resumes
+* applied jobs
+* auth-related tokens
+
+---
+
+### AI and Processing Layer
+
+AI and enrichment functionality includes:
+
+* resume analysis
+* cover letter generation
+* embedding-based job ranking
+* optional job detail summarization
+
+Services are powered using:
+
+* **OpenAI Responses API**
+* **OpenAI Embeddings API**
+
+---
+
+## How Core Features Are Implemented
+
+## 1) Job Aggregation Pipeline
+
+### How it works
+
+When a user searches for a job, the backend sends the query to multiple scraper modules in parallel.
+
+Each scraper returns normalized job objects in a shared format.
+
+### Implementation approach
+
+The backend uses parallel scraper execution with:
+
+* timeouts
+* `Promise.allSettled()`
+
+This design is useful because it allows the system to tolerate partial failure.
+
+### Why this matters
+
+If one source fails or becomes slow, the entire search should still return results from the remaining sources.
+
+### Advantage
+
+* More resilient than sequential scraping
+* Faster total response time
+* Easier to extend with additional sources
+
+### Disadvantage
+
+* Scrapers are inherently brittle
+* External site changes can break extraction logic
+* Rate limiting / bot protection can reduce reliability
+
+---
+
+## 2) Deduplication Logic
+
+A major problem in job aggregation is that the same role may appear on multiple platforms.
+
+### Deduplication strategy
+
+GradHunt uses two duplicate signals:
+
+#### Exact duplicate key
+
+* canonicalized job URL
+
+#### Fuzzy duplicate key
+
+* normalized `title + company + location`
+
+### How duplicate resolution works
+
+If multiple records refer to the same role, the system keeps the richer version and merges:
+
+* alternate URLs
+* alternate IDs
+* source metadata
+
+### Why this method is used
+
+A pure exact-match strategy would miss cross-platform duplicates, while a fully fuzzy approach may create false positives.
+
+This hybrid deduplication design balances:
+
+* **precision** (avoid merging unrelated jobs)
+* **recall** (catch likely duplicates)
+
+### Advantage
+
+* Cleaner search results
+* Less repeated job noise
+* Better user experience
+
+### Disadvantage
+
+* Fuzzy matching can still produce occasional incorrect merges
+* Requires careful normalization rules
+
+---
+
+## 3) Resume Analysis Pipeline
+
+### How it works
+
+When a resume is uploaded:
+
+1. The file is stored temporarily.
+2. Text is extracted from the document.
+3. Extracted content is sent to an AI analysis step.
+4. The response is converted into a structured candidate profile.
+
+### Parsing / extraction tools
+
+Examples include:
+
+* `pdf-parse`
+* fallback extraction tools for unsupported formats
+
+### Why use a structured profile instead of raw resume text?
+
+Raw resume text is noisy and inconsistent. A structured intermediate representation makes downstream recommendation logic much easier to implement.
+
+### Example structured fields
+
+* skills
+* target roles
+* experience level
+* education
+* preferred locations
+* strengths
+
+### Advantage
+
+* Better downstream recommendation quality
+* Easier feature engineering
+* More interpretable than using raw text alone
+
+### Disadvantage
+
+* AI extraction may occasionally omit or over-generalize information
+* Depends on resume quality and formatting
+
+---
+
+## 4) Resume-Driven Search Expansion
+
+A user may search for one role such as `software engineer`, but their resume may also fit:
+
+* backend engineer
+* platform engineer
+* full stack engineer
+* new grad software engineer
+
+### How it works
+
+GradHunt expands the search using:
+
+* current user-entered role
+* AI-inferred target roles
+* suggested search keywords
+
+The system then:
+
+* removes duplicates
+* filters by job type
+* limits the number of expanded role variants
+
+### Why use this method?
+
+A single keyword query often misses relevant jobs due to title variation across companies.
+
+### Advantage
+
+* Increases recall
+* Better coverage for real-world title variation
+* Reduces manual searching effort
+
+### Disadvantage
+
+* Too much expansion can introduce noise
+* Requires reasonable limits to avoid irrelevant results
+
+---
+
+## 5) Hybrid Job Matching Algorithm
+
+This is one of the most important parts of GradHunt.
+
+The system ranks jobs using two complementary signals:
+
+### A. Heuristic Matching
+
+This captures **explicit alignment** between the resume and a job.
+
+Examples of heuristic signals include:
+
+* title / role match
+* skills overlap
+* tools / frameworks overlap
+* location alignment
+* experience-level fit
+* education / strengths overlap
+
+This score is fast and interpretable.
+
+---
+
+### B. Embedding-Based Semantic Similarity
+
+This captures **semantic alignment** beyond exact keyword overlap.
+
+For example, a resume mentioning:
+
+* `distributed systems`
+* `backend services`
+* `microservices`
+
+may still align well with a job that emphasizes:
+
+* `platform engineering`
+* `service reliability`
+* `API infrastructure`
+
+—even if the exact words are not identical.
+
+### Formula used
+
+Semantic similarity is computed using **cosine similarity** between the resume embedding and job embedding:
+
+[
+\text{similarity}(A, B) = \frac{A \cdot B}{|A| \cdot |B|}
+]
+
+Where:
+
+* (A) = resume vector
+* (B) = job vector
+* (A \cdot B) = dot product
+* (|A|) and (|B|) = vector magnitudes
+
+### Why cosine similarity?
+
+Cosine similarity measures **directional similarity** between vectors rather than raw magnitude.
+
+This is useful for text embeddings because we care more about **semantic closeness** than document length.
+
+### Advantage
+
+* Captures semantic fit beyond keywords
+* Improves ranking quality for varied job descriptions
+
+### Disadvantage
+
+* More expensive than rule-based scoring
+* Harder to explain directly to users
+* Depends on embedding quality
+
+---
+
+## 6) Hybrid Final Match Score
+
+The final ranking score blends heuristic and semantic signals.
+
+### Example blend
+
+[
+\text{FinalScore} = 0.7 \cdot \text{HeuristicScore} + 0.3 \cdot \text{SemanticScore}
+]
+
+### Why hybrid scoring is better than using only one method
+
+#### If using only heuristics:
+
+* strong explainability
+* weak semantic generalization
+
+#### If using only embeddings:
+
+* strong semantic generalization
+* weaker transparency and controllability
+
+### Why use both?
+
+The hybrid approach balances:
+
+* **interpretability**
+* **ranking quality**
+* **practical implementation simplicity**
+
+### Advantage
+
+* Better ranking quality than pure keyword match
+* More robust across job description variation
+
+### Disadvantage
+
+* Requires score normalization and tuning
+* Weights may need future optimization
+
+---
+
+## Data Structures and Why They Were Chosen
+
+## 1) `Map` for Search Cache
+
+GradHunt uses an in-memory JavaScript `Map` for caching repeated searches.
+
+### Why use `Map`?
+
+Because cache lookup needs to be fast.
+
+### Key
+
+A normalized query signature such as:
+
+* `role + location + jobType`
+
+### Value
+
+Stores:
+
+* cached results
+* expiration time
+* optional in-flight promise
+
+### Why `Map` is a good fit
+
+* average **O(1)** lookup
+* simple key-value semantics
+* efficient for repeated reads
+
+### Advantage
+
+* Faster repeated queries
+* Reduces unnecessary scraping
+* Improves UX and response time
+
+### Disadvantage
+
+* In-memory cache is not shared across multiple servers
+* Cache disappears on restart
+* Requires expiration strategy
+
+---
+
+## 2) `Set` for Deduplication and Filtering
+
+GradHunt uses `Set` for:
+
+* duplicate detection
+* applied job filtering
+* alternate ID / URL tracking
+
+### Why use `Set`?
+
+Because membership checks are frequent and should be efficient.
+
+### Why not use arrays?
+
+An array would require repeated linear scans.
+
+### Advantage
+
+* average **O(1)** membership check
+* simple duplicate prevention
+* ideal for URL / ID tracking
+
+### Disadvantage
+
+* only stores membership, not rich metadata
+* may require additional maps/objects for associated details
+
+---
+
+## 3) MongoDB Document Models
+
+MongoDB is used for persistent user and account data.
+
+### Why MongoDB?
+
+Because the project benefits from flexible document storage for entities like:
+
+* users
+* saved resumes
+* applied jobs
+* auth tokens
+
+### Why this works well here
+
+Resume analysis output and job-related metadata can be semi-structured and evolve over time.
+
+### Advantage
+
+* flexible schema
+* easy JSON-like integration with Node.js
+* good for iterative development
+
+### Disadvantage
+
+* less rigid relational structure
+* complex joins are not as natural as SQL systems
+
+---
+
+## Authentication and Security Design
+
+GradHunt includes several standard security mechanisms.
+
+### Implemented protections
+
+* password hashing using PBKDF2 + SHA-512
+* token-based email verification
+* password reset tokens with expiration
+* protected authenticated routes
+* rate limiting on sensitive auth operations
+
+### Why these are important
+
+Because even student-side portfolio projects should demonstrate secure handling of:
+
+* credentials
+* account recovery
+* identity verification
+
+### Advantage
+
+* stronger production realism
+* better account safety
+
+### Disadvantage
+
+* more implementation complexity than a basic demo app
+
+---
+
+## Trade-Offs in the Current Design
+
+### Why scraping instead of official APIs?
+
+Many job sources have limited or unavailable public APIs for this exact use case.
+
+### Advantage
+
+* broader coverage
+* more flexible data collection
+
+### Disadvantage
+
+* lower reliability
+* maintenance burden
+* legal / policy considerations depending on platform terms
+
+---
+
+### Why use AI analysis instead of pure regex parsing?
+
+Resume content is highly variable and difficult to normalize with fixed rules alone.
+
+### Advantage
+
+* better generalization across formats
+* richer structured profile extraction
+
+### Disadvantage
+
+* extra cost and latency
+* occasional inconsistency
+
+---
+
+### Why use a hybrid ranking system instead of a learned ranking model?
+
+A fully trained ranking model would require significant labeled data such as:
+
+* clicks
+* saves
+* applies
+* long-term interaction history
+
+### Why hybrid is appropriate now
+
+For an early-stage system, a hybrid heuristic + embedding approach is easier to implement and easier to reason about.
+
+### Advantage
+
+* practical and strong baseline
+* easier to debug than black-box ML ranking
+
+### Disadvantage
+
+* not yet fully personalized from long-term behavior
+
+---
+
+## Current Limitations
+
+Current limitations of the project include:
+
+* scraper fragility due to external site changes
+* dependence on third-party services (OpenAI, MongoDB, Resend)
+* incomplete data consistency across sources
+* no learned ranking from real user feedback loops yet
+* recommendation quality still depends on resume quality and extraction accuracy
+
+---
+
+## Future Improvements
+
+Planned or natural future extensions include:
+
+### Recommendation and Personalization
+
+* learned ranking from click/apply behavior
+* stronger weighting calibration
+* user feedback loops
+
+### Product Features
+
+* saved jobs
+* alerts for new matching jobs
+* richer application analytics
+* notes per job
+* exportable application history
+
+### Infrastructure / Engineering
+
+* production deployment hardening
+* automated testing
+* observability and monitoring
+* stronger auth flows (OAuth / session hardening)
+* distributed or persistent cache
+
+---
 
 ## Tech Stack
 
-- Frontend:
-  - React 19
-  - Vite
-- Backend:
-  - Node.js
-  - Express
-- Database:
-  - MongoDB
-  - Mongoose
-- AI:
-  - OpenAI API
-- Scraping / parsing:
-  - Playwright
-  - Python scraper for LinkedIn
-  - `pdf-parse`
-- Email:
-  - Resend
+### Frontend
 
-## Project Structure
+* React
+* Vite
+* CSS
 
-```text
+### Backend
+
+* Node.js
+* Express
+* Mongoose
+
+### Database
+
+* MongoDB
+
+### AI / NLP
+
+* OpenAI Responses API
+* OpenAI Embeddings API
+
+### Scraping / Parsing
+
+* Playwright
+* Python
+* `pdf-parse`
+
+### Email / Auth Support
+
+* Resend
+
+---
+
+## Example Project Structure
+
+```bash
 GradHunt/
 ├── backend/
-│   ├── config/
 │   ├── controllers/
-│   ├── middleware/
 │   ├── models/
 │   ├── routes/
 │   ├── services/
-│   │   └── scrapers/
+│   │   ├── scrapers/
+│   │   ├── jobMatchingService.js
+│   │   ├── resumeAnalysisService.js
+│   │   └── coverLetterService.js
 │   └── server.js
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
-│   │   ├── styles/
 │   │   └── App.jsx
+│   └── vite.config.js
 └── README.md
 ```
 
-## Prerequisites
+---
 
-Make sure you have these installed:
+## Why This Project Matters
 
-- Node.js 18+
-- npm
-- MongoDB connection string
-- Python 3
+GradHunt is not just a search UI. It is a practical example of how to combine:
 
-Optional but recommended:
+* full-stack engineering
+* AI-assisted personalization
+* recommendation logic
+* document processing
+* user workflow design
 
-- Playwright browser binaries
+into a real-world product.
 
-## Environment Variables
+It demonstrates how software can reduce repeated effort in a workflow that many students struggle with: finding relevant jobs and managing the application process efficiently.
 
-Create `backend/.env` and configure the values you need.
+---
 
-### Required For Core App
+## Author
 
-```env
-PORT=3000
-MONGODB_URI=your_mongodb_connection_string
-AUTH_SECRET=your_long_random_secret
-```
-
-### Required For Resume AI Features
-
-```env
-OPENAI_API_KEY=your_openai_api_key
-OPENAI_RESUME_MODEL=gpt-4.1-mini
-OPENAI_JOB_MODEL=gpt-4.1-mini
-```
-
-### Required For Email Features
-
-```env
-RESEND_API_KEY=your_resend_api_key
-EMAIL_FROM="GradHunt <onboarding@resend.dev>"
-FRONTEND_URL=http://localhost:5173
-```
-
-Notes:
-
-- `onboarding@resend.dev` is fine for testing, but only for limited Resend test sending.
-- For real user email delivery, use a verified sender domain.
-- If `OPENAI_API_KEY` is missing, resume analysis and AI job-summary features will not work.
-- If `MONGODB_URI` is missing or MongoDB is unavailable, auth/history features will not work correctly.
-
-## Installation
-
-Clone the repository:
-
-```bash
-git clone https://github.com/Mei0707/GradHunt.git
-cd GradHunt
-```
-
-Install backend dependencies:
-
-```bash
-cd backend
-npm install
-```
-
-Install frontend dependencies:
-
-```bash
-cd ../frontend
-npm install
-```
-
-Install Playwright Chromium if needed:
-
-```bash
-cd ../backend
-npx playwright install chromium
-```
-
-## Running The App
-
-Start the backend:
-
-```bash
-cd backend
-npm start
-```
-
-Start the frontend in a second terminal:
-
-```bash
-cd frontend
-npm run dev
-```
-
-Open:
-
-- Frontend: `http://127.0.0.1:5173`
-- Backend: `http://localhost:3000`
-
-## Main API Areas
-
-### Auth
-
-- `POST /api/auth/register`
-- `POST /api/auth/login`
-- `GET /api/auth/me`
-- `PATCH /api/auth/profile`
-- `POST /api/auth/change-password`
-- `POST /api/auth/forgot-password`
-- `POST /api/auth/reset-password`
-- `POST /api/auth/request-verification`
-- `POST /api/auth/verify-email`
-
-### Resume
-
-- `POST /api/resume/upload`
-- `POST /api/resume/analyze`
-- `POST /api/resume/save`
-- `GET /api/resume/history`
-
-### Jobs
-
-- `POST /api/jobs/search`
-- `GET /api/jobs/applied`
-- `POST /api/jobs/applied`
-- `POST /api/jobs/details`
-
-## Typical User Flow
-
-1. Register an account.
-2. Verify the email or continue exploring in limited mode.
-3. Upload a resume.
-4. Let the app analyze the resume.
-5. Choose whether you are currently looking for internships or full-time/new grad roles.
-6. Search jobs.
-7. Review ranked recommendations and open job details.
-8. Mark jobs as applied.
-9. View saved resumes and applied jobs in the profile.
-
-## Known Limitations
-
-- Scraped job sources can be unstable and may change layout or rate-limit requests.
-- Indeed and ZipRecruiter may occasionally return fewer jobs than expected.
-- LinkedIn scraping is rate-limit sensitive.
-- Some job descriptions from external sources can still be incomplete.
-- Email sending with `onboarding@resend.dev` is only suitable for testing.
-
-## Development Notes
-
-- Backend search results are cached to reduce repeated scraping.
-- Resume-driven searches can expand into multiple related role searches and then merge the results.
-- Verified email is required for certain saved-history features.
-- The frontend currently calls the backend at `http://localhost:3000` directly.
-
-## Future Improvements
-
-- Improve scraper stability and source coverage
-- Add richer job-detail extraction
-- Improve recommendation quality further
-- Add stronger deduplication between sources
-- Move frontend API base URL to env configuration
-- Add tests for key backend services and auth flows
-
+**Qiaowen Mei**
