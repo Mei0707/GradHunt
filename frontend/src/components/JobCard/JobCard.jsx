@@ -84,7 +84,7 @@ function JobCard({ job, onViewDetails, onApply, onGenerateCoverLetter, canGenera
             <div className="job-card-button-row">
               <button
                 type="button"
-                className="btn btn-sm btn-outline-secondary"
+                className="btn btn-sm job-card-btn job-card-btn-secondary"
                 onClick={() => onViewDetails(job)}
               >
                 Details
@@ -92,7 +92,7 @@ function JobCard({ job, onViewDetails, onApply, onGenerateCoverLetter, canGenera
               {canGenerateCoverLetter && (
                 <button
                   type="button"
-                  className="btn btn-sm btn-outline-success"
+                  className="btn btn-sm job-card-btn job-card-btn-secondary"
                   onClick={() => onGenerateCoverLetter(job)}
                 >
                   Cover Letter
@@ -100,7 +100,7 @@ function JobCard({ job, onViewDetails, onApply, onGenerateCoverLetter, canGenera
               )}
               <button
                 type="button"
-                className={`btn btn-sm ${isApplied ? 'btn-success' : 'btn-outline-primary'}`}
+                className={`btn btn-sm job-card-btn ${isApplied ? 'job-card-btn-success' : 'job-card-btn-primary'}`}
                 onClick={() => onApply(job)}
               >
                 {isApplied ? 'Applied' : 'Apply'}
