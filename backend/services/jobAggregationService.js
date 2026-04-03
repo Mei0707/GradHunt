@@ -341,7 +341,7 @@ const getAggregatedJobs = async (
     console.log(`Using search roles: ${searchedRoles.join(', ')}`);
     const scrapedJobs = await getJobsForSearchRoles(searchedRoles, location, jobType);
     const filteredJobs = filterJobsByType(scrapedJobs, jobType);
-    const rankedJobs = rankJobsForResume(filteredJobs, resumeProfile);
+    const rankedJobs = await rankJobsForResume(filteredJobs, resumeProfile);
     const visibleJobs = options.hideApplied
       ? filterAppliedJobs(rankedJobs, options.appliedJobIds, options.appliedJobUrls)
       : rankedJobs;

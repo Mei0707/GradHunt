@@ -1,4 +1,7 @@
 const normalize = (value = '') => value.toLowerCase().trim();
+const EMBEDDING_MODEL = process.env.OPENAI_EMBEDDING_MODEL || 'text-embedding-3-small';
+const EMBEDDING_CACHE_TTL_MS = 60 * 60 * 1000;
+const embeddingCache = new Map();
 
 const uniqueNormalizedList = (items = []) =>
   [...new Set(items.map((item) => normalize(item)).filter(Boolean))];
@@ -22,6 +25,134 @@ const includesPhrase = (haystack, phrase) => {
 
 const countMatches = (items, haystack) =>
   items.filter((item) => includesPhrase(haystack, item));
+
+const compactText = (value = '') => value.replace(/\s+/g, ' ').trim();
+
+const truncateForEmbedding = (value = '', maxLength = 6000) =>
+  compactText(value).slice(0, maxLength);
+
+const cosineSimilarity = (first = [], second = []) => {
+  if (!Array.isArray(first) || !Array.isArray(second) || first.length !== second.length || first.length === 0) {
+    return 0;
+  }
+
+  let dot = 0;
+  let firstNorm = 0;
+  let secondNorm = 0;
+
+  for (let index = 0; index < first.length; index += 1) {
+    dot += first[index] * second[index];
+    firstNorm += first[index] * first[index];
+    secondNorm += second[index] * second[index];
+  }
+
+  if (firstNorm === 0 || secondNorm === 0) {
+    return 0;
+  }
+
+  return dot / (Math.sqrt(firstNorm) * Math.sqrt(secondNorm));
+};
+
+const normalizeSimilarityToScore = (similarity) => {
+  const bounded = Math.max(0, Math.min(1, (similarity - 0.1) / 0.45));
+  return Math.round(bounded * 100);
+};
+
+const buildResumeEmbeddingText = (resumeProfile = {}) =>
+  truncateForEmbedding(
+    [
+      `Candidate summary: ${resumeProfile.candidate_summary || ''}`,
+      `Experience level: ${resumeProfile.experience_level || ''}`,
+      `Target roles: ${(resumeProfile.target_roles || []).join(', ')}`,
+      `Skills: ${(resumeProfile.skills || []).join(', ')}`,
+      `Tools and frameworks: ${(resumeProfile.tools_and_frameworks || []).join(', ')}`,
+      `Strengths: ${(resumeProfile.strengths || []).join(', ')}`,
+      `Preferred locations: ${(resumeProfile.preferred_locations || []).join(', ')}`,
+    ].join('\n')
+  );
+
+const buildJobEmbeddingText = (job = {}) =>
+  truncateForEmbedding(
+    [
+      `Title: ${job.title || ''}`,
+      `Company: ${job.company || ''}`,
+      `Location: ${job.location || ''}`,
+      `Source: ${job.source || ''}`,
+      `Description: ${job.description || ''}`,
+    ].join('\n')
+  );
+
+const getCachedEmbedding = (text) => {
+  const cacheEntry = embeddingCache.get(text);
+  if (!cacheEntry) {
+    return null;
+  }
+
+  if (cacheEntry.expiresAt <= Date.now()) {
+    embeddingCache.delete(text);
+    return null;
+  }
+
+  return cacheEntry.embedding;
+};
+
+const cacheEmbedding = (text, embedding) => {
+  embeddingCache.set(text, {
+    embedding,
+    expiresAt: Date.now() + EMBEDDING_CACHE_TTL_MS,
+  });
+};
+
+const fetchEmbeddings = async (texts) => {
+  if (!process.env.OPENAI_API_KEY) {
+    return new Map();
+  }
+
+  const normalizedTexts = texts.map((text) => truncateForEmbedding(text));
+  const embeddingsByText = new Map();
+  const uncachedTexts = [];
+
+  normalizedTexts.forEach((text) => {
+    const cachedEmbedding = getCachedEmbedding(text);
+    if (cachedEmbedding) {
+      embeddingsByText.set(text, cachedEmbedding);
+    } else if (!uncachedTexts.includes(text)) {
+      uncachedTexts.push(text);
+    }
+  });
+
+  if (uncachedTexts.length > 0) {
+    const response = await fetch('https://api.openai.com/v1/embeddings', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: EMBEDDING_MODEL,
+        input: uncachedTexts,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`OpenAI embeddings failed: ${response.status} ${errorText}`);
+    }
+
+    const data = await response.json();
+    data.data?.forEach((item, index) => {
+      const text = uncachedTexts[index];
+      if (!text || !Array.isArray(item.embedding)) {
+        return;
+      }
+
+      cacheEmbedding(text, item.embedding);
+      embeddingsByText.set(text, item.embedding);
+    });
+  }
+
+  return embeddingsByText;
+};
 
 const hasTokenOverlap = (item, haystack, minimumOverlap = 1) => {
   const itemTokens = tokenizeWords(item);
@@ -64,6 +195,8 @@ const scoreJobAgainstResume = (job, resumeProfile) => {
     return {
       ...job,
       matchScore: null,
+      heuristicMatchScore: null,
+      semanticMatchScore: null,
       matchReasons: [],
     };
   }
@@ -180,24 +313,13 @@ const scoreJobAgainstResume = (job, resumeProfile) => {
   return {
     ...job,
     matchScore: Math.max(0, Math.round(score)),
+    heuristicMatchScore: Math.max(0, Math.round(score)),
+    semanticMatchScore: null,
     matchReasons: reasons,
   };
 };
 
-const rankJobsForResume = (jobs, resumeProfile) => {
-  if (!resumeProfile) {
-    return jobs;
-  }
-
-  const rankedJobs = jobs
-    .map((job) => scoreJobAgainstResume(job, resumeProfile))
-    .sort((a, b) => {
-      if (b.matchScore !== a.matchScore) {
-        return b.matchScore - a.matchScore;
-      }
-      return new Date(b.created || 0) - new Date(a.created || 0);
-    });
-
+const calibrateRankedScores = (rankedJobs) => {
   const topScore = rankedJobs[0]?.matchScore || 0;
 
   if (topScore <= 0) {
@@ -222,6 +344,67 @@ const rankJobsForResume = (jobs, resumeProfile) => {
       matchScore: Math.min(100, calibratedScore),
     };
   });
+};
+
+const applyEmbeddingScores = async (jobs, resumeProfile) => {
+  const resumeText = buildResumeEmbeddingText(resumeProfile);
+  if (!resumeText) {
+    return jobs;
+  }
+
+  const jobTexts = jobs.map((job) => buildJobEmbeddingText(job));
+  const embeddingsByText = await fetchEmbeddings([resumeText, ...jobTexts]);
+  const resumeEmbedding = embeddingsByText.get(resumeText);
+
+  if (!resumeEmbedding) {
+    return jobs;
+  }
+
+  return jobs.map((job, index) => {
+    const jobEmbedding = embeddingsByText.get(jobTexts[index]);
+    if (!jobEmbedding) {
+      return job;
+    }
+
+    const similarity = cosineSimilarity(resumeEmbedding, jobEmbedding);
+    const semanticMatchScore = normalizeSimilarityToScore(similarity);
+    const hybridScore = Math.round((job.heuristicMatchScore || 0) * 0.7 + semanticMatchScore * 0.3);
+    const nextReasons =
+      semanticMatchScore >= 70
+        ? [...job.matchReasons, 'Strong semantic resume alignment']
+        : job.matchReasons;
+
+    return {
+      ...job,
+      matchScore: hybridScore,
+      semanticMatchScore,
+      matchReasons: nextReasons,
+    };
+  });
+};
+
+const rankJobsForResume = async (jobs, resumeProfile) => {
+  if (!resumeProfile) {
+    return jobs;
+  }
+
+  const heuristicallyScoredJobs = jobs.map((job) => scoreJobAgainstResume(job, resumeProfile));
+
+  let hybridScoredJobs = heuristicallyScoredJobs;
+  try {
+    hybridScoredJobs = await applyEmbeddingScores(heuristicallyScoredJobs, resumeProfile);
+  } catch (error) {
+    console.warn(`Embedding similarity scoring failed, falling back to heuristic scores: ${error.message}`);
+  }
+
+  const rankedJobs = hybridScoredJobs.sort((a, b) => {
+    if (b.matchScore !== a.matchScore) {
+      return b.matchScore - a.matchScore;
+    }
+    return new Date(b.created || 0) - new Date(a.created || 0);
+  });
+
+  return calibrateRankedScores(rankedJobs);
 };
 
 module.exports = {
