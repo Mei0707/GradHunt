@@ -12,6 +12,104 @@ const buildCacheKey = (role, location, jobType) =>
   `${role.trim().toLowerCase()}::${location.trim().toLowerCase()}::${jobType.trim().toLowerCase()}`;
 
 const normalizeText = (value = '') => value.toLowerCase().trim();
+const normalizeWhitespace = (value = '') => value.replace(/\s+/g, ' ').trim();
+const SOURCE_PRIORITY = {
+  LinkedIn: 4,
+  ZipRecruiter: 3,
+  Indeed: 2,
+  Unknown: 1,
+};
+
+const normalizeLocation = (value = '') =>
+  normalizeText(value)
+    .replace(/\b(hybrid|remote|on-site|onsite)\b/g, ' ')
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const normalizeTitle = (value = '') =>
+  normalizeText(value)
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\b(full time|full-time|new grad|entry level)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const normalizeCompany = (value = '') =>
+  normalizeText(value)
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\b(inc|llc|corp|corporation|company|co|ltd)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const canonicalizeUrl = (rawUrl = '') => {
+  if (!rawUrl) {
+    return '';
+  }
+
+  try {
+    const url = new URL(rawUrl);
+    const hostname = url.hostname.replace(/^www\./, '').toLowerCase();
+
+    if (hostname.includes('linkedin.com')) {
+      const jobMatch = url.pathname.match(/\/jobs\/view\/(\d+)/i);
+      if (jobMatch) {
+        return `linkedin:${jobMatch[1]}`;
+      }
+    }
+
+    if (hostname.includes('indeed.com')) {
+      const jk = url.searchParams.get('jk');
+      if (jk) {
+        return `indeed:${jk.toLowerCase()}`;
+      }
+    }
+
+    if (hostname.includes('ziprecruiter.com')) {
+      const cleanedPath = url.pathname.replace(/\/+$/, '').toLowerCase();
+      if (cleanedPath) {
+        return `ziprecruiter:${cleanedPath}`;
+      }
+    }
+
+    url.search = '';
+    url.hash = '';
+    return `${hostname}${url.pathname.replace(/\/+$/, '').toLowerCase()}`;
+  } catch (error) {
+    return normalizeText(rawUrl);
+  }
+};
+
+const buildExactJobKey = (job) => {
+  const canonicalUrl = canonicalizeUrl(job.url || '');
+  if (canonicalUrl) {
+    return `url::${canonicalUrl}`;
+  }
+
+  return [
+    'exact',
+    normalizeTitle(job.title || ''),
+    normalizeCompany(job.company || ''),
+    normalizeLocation(job.location || ''),
+  ].join('::');
+};
+
+const buildFuzzyJobKey = (job) =>
+  [
+    normalizeTitle(job.title || ''),
+    normalizeCompany(job.company || ''),
+    normalizeLocation(job.location || ''),
+  ].join('::');
+
+const getDescriptionLength = (job) => normalizeWhitespace(job.description || '').length;
+const getSourcePriority = (job) => SOURCE_PRIORITY[job.source] || SOURCE_PRIORITY.Unknown;
+const getQualityScore = (job) =>
+  getDescriptionLength(job) +
+  (job.salary_min || job.salary_max ? 40 : 0) +
+  (job.time_posted ? 15 : 0) +
+  getSourcePriority(job) * 10;
+
+const mergeUniqueValues = (first = [], second = []) =>
+  [...new Set([...first, ...second].filter(Boolean))];
 
 const INTERNSHIP_PATTERN = /\b(intern|internship|co-?op|apprentice|summer intern|fall intern)\b/i;
 
@@ -30,7 +128,16 @@ const filterAppliedJobs = (jobs, appliedJobIds = new Set(), appliedJobUrls = new
     return jobs;
   }
 
-  return jobs.filter((job) => !appliedJobIds.has(job.id) && !appliedJobUrls.has(job.url));
+  return jobs.filter((job) => {
+    const idMatches =
+      appliedJobIds.has(job.id) ||
+      (Array.isArray(job.alternateIds) && job.alternateIds.some((id) => appliedJobIds.has(id)));
+    const urlMatches =
+      appliedJobUrls.has(job.url) ||
+      (Array.isArray(job.alternateUrls) && job.alternateUrls.some((url) => appliedJobUrls.has(url)));
+
+    return !idMatches && !urlMatches;
+  });
 };
 
 const paginateJobs = (jobs, page) => {
@@ -47,24 +154,59 @@ const paginateJobs = (jobs, page) => {
   };
 };
 
-const dedupeJobs = (jobs) => {
-  const seen = new Set();
+const mergeDuplicateJobs = (jobs) => {
+  const mergedByKey = new Map();
 
-  return jobs.filter((job) => {
-    const key = [
-      normalizeText(job.url || ''),
-      normalizeText(job.title || ''),
-      normalizeText(job.company || ''),
-      normalizeText(job.location || ''),
-    ].join('::');
+  for (const job of jobs) {
+    const exactKey = buildExactJobKey(job);
+    const fuzzyKey = buildFuzzyJobKey(job);
+    const existing = mergedByKey.get(exactKey) || mergedByKey.get(fuzzyKey);
 
-    if (seen.has(key)) {
-      return false;
+    if (!existing) {
+      const normalizedJob = {
+        ...job,
+        description: normalizeWhitespace(job.description || ''),
+        alternateIds: [job.id].filter(Boolean),
+        alternateUrls: [job.url].filter(Boolean),
+        sources: [job.source || 'Unknown'],
+      };
+
+      mergedByKey.set(exactKey, normalizedJob);
+      mergedByKey.set(fuzzyKey, normalizedJob);
+      continue;
     }
 
-    seen.add(key);
-    return true;
-  });
+    const existingQuality = getQualityScore(existing);
+    const incomingQuality = getQualityScore(job);
+    const primaryJob = incomingQuality > existingQuality ? job : existing;
+    const secondaryJob = primaryJob === existing ? job : existing;
+
+    const mergedJob = {
+      ...existing,
+      ...primaryJob,
+      description:
+        getDescriptionLength(primaryJob) >= getDescriptionLength(secondaryJob)
+          ? normalizeWhitespace(primaryJob.description || '')
+          : normalizeWhitespace(secondaryJob.description || ''),
+      salary_min: primaryJob.salary_min ?? secondaryJob.salary_min,
+      salary_max: primaryJob.salary_max ?? secondaryJob.salary_max,
+      salary_is_predicted: primaryJob.salary_is_predicted ?? secondaryJob.salary_is_predicted,
+      time_posted: primaryJob.time_posted || secondaryJob.time_posted,
+      num_applicants: primaryJob.num_applicants || secondaryJob.num_applicants,
+      created: primaryJob.created || secondaryJob.created,
+      alternateIds: mergeUniqueValues(existing.alternateIds, [job.id]),
+      alternateUrls: mergeUniqueValues(existing.alternateUrls, [job.url]),
+      sources: mergeUniqueValues(existing.sources, [job.source || 'Unknown']),
+    };
+
+    mergedJob.source =
+      mergedJob.sources.length > 1 ? mergedJob.sources.join(' + ') : mergedJob.sources[0] || 'Unknown';
+
+    mergedByKey.set(exactKey, mergedJob);
+    mergedByKey.set(fuzzyKey, mergedJob);
+  }
+
+  return [...new Set(mergedByKey.values())];
 };
 
 const buildResumeSearchRoles = (baseRole, resumeProfile, jobType = 'full-time') => {
@@ -173,7 +315,7 @@ const getJobsForSearchRoles = async (roles, location, jobType = 'full-time') => 
     })
   );
 
-  return dedupeJobs(results.flat());
+  return mergeDuplicateJobs(results.flat());
 };
 
 /**

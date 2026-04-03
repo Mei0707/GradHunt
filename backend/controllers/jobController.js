@@ -174,7 +174,13 @@ const searchJobs = async (req, res) => {
           ...jobData,
           jobs: jobData.jobs.map((job) => ({
             ...job,
-            isApplied: appliedJobIds.has(job.id) || appliedJobUrls.has(job.url),
+            isApplied:
+              appliedJobIds.has(job.id) ||
+              appliedJobUrls.has(job.url) ||
+              (Array.isArray(job.alternateIds) &&
+                job.alternateIds.some((id) => appliedJobIds.has(id))) ||
+              (Array.isArray(job.alternateUrls) &&
+                job.alternateUrls.some((url) => appliedJobUrls.has(url))),
           })),
         };
       }
