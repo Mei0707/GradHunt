@@ -9,7 +9,7 @@ python-multipart==0.0.20
 langgraph==0.2.62
 
 # --- LLM / embeddings ---
-openai==1.59.6
+openai==3.35.1
 
 # --- Data layer (Postgres + pgvector) ---
 sqlalchemy==2.0.36
