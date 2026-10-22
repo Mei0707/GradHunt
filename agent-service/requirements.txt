@@ -6,7 +6,7 @@ pydantic-settings==2.7.1
 python-multipart==0.0.20
 
 # --- Agent orchestration ---
-langgraph==0.2.62
+langgraph==1.2.16
 
 # --- LLM / embeddings ---
 openai==1.59.6
