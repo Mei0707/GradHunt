@@ -723,6 +723,21 @@ Remaining extensions include:
 
 ---
 
+## Python environment setup
+
+The LinkedIn scraper uses Python 3.11 or newer. From the repository root, create a local environment and install the same pinned dependencies used by the gateway Docker image:
+
+```sh
+python3 -m venv backend/.venv
+backend/.venv/bin/python -m pip install -r backend/services/scrapers/requirements.txt
+backend/.venv/bin/python -m pip check
+export PYTHON_BIN="$PWD/backend/.venv/bin/python"
+```
+
+Start the backend from this shell, or set `PYTHON_BIN` to this absolute interpreter path in `backend/.env`. On Windows, use `backend/.venv/Scripts/python.exe`. Virtual environments, installed `site-packages` and Python bytecode are generated locally and ignored by Git.
+
+The optional agent service has its own [requirements](agent-service/requirements.txt) and [setup instructions](agent-service/README.md); install those in a separate environment.
+
 ## Tech Stack
 
 ### Frontend

@@ -5,7 +5,11 @@ cdk.out/
 .env.*
 !.env.example
 **/.venv/
+venv/
+site-packages/
+/backend/services/scrapers/linkedin_scraper/
 **/__pycache__/
+*.py[cod]
 **/.pytest_cache/
 .DS_Store
 reports/

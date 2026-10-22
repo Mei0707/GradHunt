@@ -3,6 +3,9 @@
 **/.env
 **/.env.*
 **/.venv
+**/venv
+**/site-packages
+**/*.py[cod]
 **/uploads
 **/linkedin_jobs.json
 **/indeed_jobs.json

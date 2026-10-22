@@ -9,10 +9,11 @@ FROM node:22-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae
 ENV NODE_ENV=production PYTHONUNBUFFERED=1 PLAYWRIGHT_BROWSERS_PATH=/opt/browsers PUPPETEER_SKIP_DOWNLOAD=true
 WORKDIR /app/backend
 COPY backend/package*.json ./
+COPY backend/services/scrapers/requirements.txt ./services/scrapers/requirements.txt
 RUN npm ci --omit=dev && npx playwright install --with-deps chromium \
     && apt-get update && apt-get install -y --no-install-recommends python3 python3-venv antiword \
     && python3 -m venv /opt/scraper \
-    && /opt/scraper/bin/pip install --no-cache-dir requests==2.32.5 beautifulsoup4==4.14.3 \
+    && /opt/scraper/bin/pip install --no-cache-dir -r services/scrapers/requirements.txt \
     && rm -rf /var/lib/apt/lists/* /root/.cache \
     && chmod -R a+rX /opt/browsers
 ENV PYTHON_BIN=/opt/scraper/bin/python
