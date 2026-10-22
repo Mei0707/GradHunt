@@ -12,6 +12,12 @@ updates:
     directory: /frontend
     schedule:
       interval: weekly
+    groups:
+      vite-toolchain:
+        # These packages have coupled peer dependencies, including major updates.
+        patterns:
+          - vite
+          - '@vitejs/plugin-react'
   - package-ecosystem: npm
     directory: /infra
     schedule:

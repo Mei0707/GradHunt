@@ -46,8 +46,20 @@ docker exec "$api" node -e "(async()=>{
   assert.equal((await fetch(base+'/api/auth/me')).status,401);
   assert.equal((await fetch(base+'/api/unknown')).status,404);
   const browser=await require('playwright').chromium.launch({headless:true});
+  const page=await browser.newPage();
+  const errors=[];
+  page.on('pageerror', error=>errors.push(error.message));
+  await page.route('https://cdn.jsdelivr.net/**', route=>route.abort());
+  // Verify the built React bundle without invoking external scrapers.
+  await page.route('**/api/jobs/search', route=>route.fulfill({
+    contentType:'application/json',
+    body:JSON.stringify({jobs:[],count:0,totalPages:1,currentPage:1}),
+  }));
+  await page.goto(base);
+  await page.getByRole('heading',{name:'GradHunt',exact:true}).waitFor();
+  assert.deepEqual(errors,[]);
   await browser.close();
-  console.log('SPA, API routing, auth and non-root browser launch: PASS');
+  console.log('SPA render, API routing, auth and non-root browser launch: PASS');
 })().catch(e=>{console.error(e);process.exit(1)})"
 docker exec "$api" /opt/scraper/bin/python -c 'import requests, bs4; print("Python scraper imports: PASS")'
 docker logs "$api" | python3 -c '
