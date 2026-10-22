@@ -181,12 +181,18 @@ const extractJobsFromPage = async (page, location) =>
     return jobs;
   }, location);
 
-const scrapeZipRecruiterJobsBrowser = async (title, location, numJobs = 20) => {
+const scrapeZipRecruiterJobsBrowser = async (title, location, numJobs = 20, signal) => {
   let browser;
+  let deadline;
+  const abort = () => browser?.close().catch(() => {});
   const allJobs = [];
 
   try {
+    signal?.throwIfAborted();
     browser = await chromium.launch({ headless: true });
+    signal?.throwIfAborted();
+    signal?.addEventListener('abort', abort, { once: true });
+    deadline = setTimeout(() => browser.close().catch(() => {}), 55000);
     const context = await browser.newContext({
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
       locale: 'en-US',
@@ -238,7 +244,7 @@ const scrapeZipRecruiterJobsBrowser = async (title, location, numJobs = 20) => {
         })).catch(() => null);
 
         console.warn(`ZipRecruiter blocked the initial search page with status ${status}.`, pageSignals);
-        return [];
+        throw new Error(`ZipRecruiter responded with status ${status}`);
       }
 
       await page.waitForLoadState('networkidle').catch(() => {});
@@ -281,6 +287,8 @@ const scrapeZipRecruiterJobsBrowser = async (title, location, numJobs = 20) => {
 
     return allJobs.slice(0, numJobs);
   } finally {
+    clearTimeout(deadline);
+    signal?.removeEventListener('abort', abort);
     if (browser) {
       await browser.close();
     }

@@ -51,6 +51,7 @@ const summarizeJobDescription = async ({ title, company, description }) => {
   }
 
   const response = await fetch('https://api.openai.com/v1/responses', {
+    signal: AbortSignal.timeout(45000),
     method: 'POST',
     headers: {
       Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,

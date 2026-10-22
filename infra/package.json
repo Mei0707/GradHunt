@@ -1,0 +1,17 @@
+{
+  "name": "gradhunt-infra",
+  "private": true,
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "synth": "cdk synth",
+    "diff": "cdk diff",
+    "deploy": "cdk deploy"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "2.274.0",
+    "constructs": "10.6.0"
+  },
+  "devDependencies": {
+    "aws-cdk": "2.1146.1"
+  }
+}

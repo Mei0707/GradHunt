@@ -6,7 +6,7 @@ const readJsonResponse = async (response) => {
 
   try {
     return rawText ? JSON.parse(rawText) : {};
-  } catch (error) {
+  } catch {
     throw new Error(`The backend returned an invalid response (${response.status}).`);
   }
 };
@@ -48,7 +48,7 @@ function AuthModal({ mode = 'login', actionToken = '', onClose, onAuthSuccess })
           : isResetPassword
             ? 'reset-password'
             : 'login';
-      const response = await fetch(`http://localhost:3000/api/auth/${endpoint}`, {
+      const response = await fetch(`/api/auth/${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

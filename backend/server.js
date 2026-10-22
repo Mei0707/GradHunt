@@ -1,109 +1,40 @@
-// backend/server.js
-const express = require('express');
-const path = require('path');
-const dotenv = require('dotenv');
+require('dotenv').config();
+const mongoose = require('mongoose');
 const connectDB = require('./config/db');
-const cors = require('cors');
-const jobRoutes = require('./routes/jobRoutes');
-const resumeRoutes = require('./routes/resumeRoutes');
-const authRoutes = require('./routes/authRoutes');
-
-// Load environment variables
-dotenv.config();
-
-// Connect to database (still useful for caching scraped jobs)
-connectDB();
-
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-// Middleware
-app.use(cors());
-app.use(express.json({ limit: '10mb' }));
-
-// Increase request timeout for web scraping
-app.use((req, res, next) => {
-  // Set timeout to 2 minutes for scraping operations
-  req.setTimeout(120000);
-  next();
-});
-
-// Request logging middleware
-app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - Request: ${req.method} ${req.url}`);
-  next();
-});
-
-// Ensure body parsing and other server errors come back as JSON instead of HTML
-app.use((error, req, res, next) => {
-  if (!error) {
-    return next();
+const { createApp } = require('./app');
+const { log } = require('./lib/telemetry');
+const start = async () => {
+  if (process.env.NODE_ENV === 'production') {
+    for (const key of ['MONGODB_URI', 'AUTH_SECRET', 'FRONTEND_URL', 'RESUME_BUCKET']) {
+      if (!process.env[key]) throw new Error(`Missing required production setting: ${key}`);
+    }
+    if (process.env.AUTH_SECRET.length < 32) throw new Error('AUTH_SECRET must have at least 32 characters');
   }
-
-  console.error('Server middleware error:', error);
-
-  if (error.type === 'entity.too.large') {
-    return res.status(413).json({
-      error: 'Payload too large',
-      message: 'The uploaded resume is too large for the server to process. Please upload a smaller file.',
+  await connectDB();
+  let draining = false;
+  const app = createApp({ isDraining: () => draining });
+  const server = app.listen(process.env.PORT || 3000, () => log('info', 'server_started'));
+  server.requestTimeout = 140000;
+  server.headersTimeout = 15000;
+  const shutdown = (signal, exitCode = 0) => {
+    if (draining) return;
+    draining = true;
+    log('info', 'shutdown_started', { signal });
+    const deadline = setTimeout(() => process.exit(1), 25000);
+    deadline.unref();
+    server.close(async () => {
+      try { await mongoose.disconnect(); } finally { process.exit(exitCode); }
     });
-  }
-
-  if (error instanceof SyntaxError && error.status === 400 && 'body' in error) {
-    return res.status(400).json({
-      error: 'Invalid JSON payload',
-      message: 'The request body could not be parsed. Please try uploading the resume again.',
-    });
-  }
-
-  return res.status(500).json({
-    error: 'Server error',
-    message: 'An unexpected server error occurred.',
-  });
+    server.closeIdleConnections();
+  };
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('unhandledRejection', () => shutdown('unhandledRejection', 1));
+  process.on('uncaughtException', () => shutdown('uncaughtException', 1));
+  return server;
+};
+if (require.main === module) start().catch(error => {
+  log('error', 'startup_failed', { type: error.name });
+  process.exitCode = 1;
 });
-
-// Basic route to check if the server is working
-app.get('/', (req, res) => {
-  res.send('GradHunt Backend is running with web scraping for job data');
-});
-
-// Test route to check scraper status
-app.get('/api/scraper-status', (req, res) => {
-  res.json({
-    status: 'active',
-    scrapers: [
-      'Google Careers', 
-      'Microsoft Careers',
-      'Amazon Jobs'
-      // Add more as you implement them
-    ],
-    lastUpdated: new Date().toISOString()
-  });
-});
-
-// Job routes
-app.use('/api/auth', authRoutes);
-app.use('/api/jobs', jobRoutes);
-app.use('/api/resume', resumeRoutes);
-
-app.use('/api', (req, res) => {
-  res.status(404).json({
-    error: 'API route not found',
-    message: `No API route matches ${req.method} ${req.originalUrl}.`,
-  });
-});
-
-// Serve frontend from backend if in production
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../frontend')));
-  
-  app.get('*', (req, res) => {
-    res.sendFile(path.resolve(__dirname, '../frontend', 'index.html'));
-  });
-}
-
-// Start the server
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-  console.log(`Using web scraping for job data collection`);
-});
+module.exports = { start };

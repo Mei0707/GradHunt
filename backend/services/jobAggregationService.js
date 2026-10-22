@@ -1,6 +1,8 @@
 // services/jobAggregationService.js
 const { scrapeAllCompanyJobs } = require('./scrapers/companyScrapers');
 const { rankJobsForResume } = require('./jobMatchingService');
+const { createBulkhead } = require('../lib/recovery');
+const runScrape = createBulkhead(3);
 
 const PAGE_SIZE = 18;
 const CACHE_TTL_MS = 10 * 60 * 1000;
@@ -257,6 +259,15 @@ const buildResumeSearchRoles = (baseRole, resumeProfile, jobType = 'full-time') 
 };
 
 const getCachedJobs = async (role, location, jobType = 'full-time') => {
+  const cutoff = Date.now();
+  for (const [key, entry] of jobSearchCache) {
+    if (!entry.pendingPromise && entry.expiresAt <= cutoff) jobSearchCache.delete(key);
+  }
+  while (jobSearchCache.size >= 100) {
+    const oldest = [...jobSearchCache].find(([, entry]) => !entry.pendingPromise);
+    if (!oldest) break;
+    jobSearchCache.delete(oldest[0]);
+  }
   const cacheKey = buildCacheKey(role, location, jobType);
   const cachedEntry = jobSearchCache.get(cacheKey);
   const now = Date.now();
@@ -272,7 +283,7 @@ const getCachedJobs = async (role, location, jobType = 'full-time') => {
   }
 
   const pendingPromise = (async () => {
-    const scrapedJobs = await scrapeAllCompanyJobs(role, location, jobType);
+    const scrapedJobs = await runScrape(() => scrapeAllCompanyJobs(role, location, jobType));
     scrapedJobs.sort((a, b) => new Date(b.created) - new Date(a.created));
 
     jobSearchCache.set(cacheKey, {
@@ -352,14 +363,7 @@ const getAggregatedJobs = async (
     };
   } catch (error) {
     console.error('Error in job aggregation:', error);
-    // Return empty results on error
-    return {
-      jobs: [],
-      count: 0,
-      totalPages: 1,
-      currentPage: parseInt(page),
-      pageSize: PAGE_SIZE
-    };
+    throw error;
   }
 };
 

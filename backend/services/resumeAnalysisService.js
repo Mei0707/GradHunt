@@ -1,11 +1,13 @@
-const fs = require('fs');
+const fs = require('node:fs/promises');
+const os = require('node:os');
+const mammoth = require('mammoth');
+const { readResume } = require('./resumeStorage');
 const path = require('path');
 const { execFile } = require('child_process');
 const { promisify } = require('util');
 const pdfParse = require('pdf-parse');
 
 const execFileAsync = promisify(execFile);
-const uploadsDir = path.join(__dirname, '../uploads/resumes');
 const DEFAULT_OPENAI_MODEL = process.env.OPENAI_RESUME_MODEL || 'gpt-4.1-mini';
 
 const RESUME_ANALYSIS_SCHEMA = {
@@ -86,70 +88,27 @@ const isReadableResumeText = (text = '') => {
   return text.length >= MIN_TEXT_LENGTH && alphaMatches.length >= 20;
 };
 
-const extractTextWithTextutil = async (filePath) => {
-  const { stdout } = await execFileAsync('/usr/bin/textutil', ['-convert', 'txt', '-stdout', filePath], {
-    maxBuffer: 10 * 1024 * 1024,
-  });
-  return normalizeWhitespace(stdout);
-};
-
-const extractPdfTextWithMdls = async (filePath) => {
-  let stdout;
-
-  try {
-    ({ stdout } = await execFileAsync('/usr/bin/mdls', ['-name', 'kMDItemTextContent', '-raw', filePath], {
-      maxBuffer: 10 * 1024 * 1024,
-    }));
-  } catch (error) {
-    return '';
-  }
-
-  const text = stdout.trim();
-  if (!text || text === '(null)') {
-    return '';
-  }
-
-  return normalizeWhitespace(text);
-};
-
-const extractPdfTextWithPdfParse = async (filePath) => {
-  const fileBuffer = fs.readFileSync(filePath);
-  const result = await pdfParse(fileBuffer);
-  return normalizeWhitespace(result.text || '');
-};
-
 const extractResumeText = async (storedFileName) => {
-  const filePath = path.join(uploadsDir, storedFileName);
-  if (!fs.existsSync(filePath)) {
-    throw new Error('Uploaded resume file was not found.');
-  }
-
+  const buffer = await readResume(storedFileName);
   const extension = path.extname(storedFileName).toLowerCase();
-
-  if (extension === '.txt') {
-    return normalizeWhitespace(fs.readFileSync(filePath, 'utf8'));
+  let text = '';
+  if (extension === '.txt') text = buffer.toString('utf8');
+  if (extension === '.pdf') text = (await pdfParse(buffer)).text || '';
+  if (extension === '.docx') text = (await mammoth.extractRawText({ buffer })).value;
+  if (extension === '.doc') {
+    // Legacy Word parsing is isolated in a temporary directory and has a deadline.
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'gradhunt-resume-'));
+    const file = path.join(directory, 'resume.doc');
+    try {
+      await fs.writeFile(file, buffer, { mode: 0o600 });
+      const command = process.platform === 'darwin' ? '/usr/bin/textutil' : 'antiword';
+      const args = process.platform === 'darwin' ? ['-convert', 'txt', '-stdout', file] : [file];
+      text = (await execFileAsync(command, args, { timeout: 10000, maxBuffer: 10 * 1024 * 1024 })).stdout;
+    } finally { await fs.rm(directory, { recursive: true, force: true }); }
   }
-
-  if (extension === '.pdf') {
-    const parsedPdfText = await extractPdfTextWithPdfParse(filePath);
-    if (isReadableResumeText(parsedPdfText)) {
-      return parsedPdfText;
-    }
-
-    const pdfText = await extractPdfTextWithMdls(filePath);
-    if (isReadableResumeText(pdfText)) {
-      return pdfText;
-    }
-  }
-
-  if (extension === '.doc' || extension === '.docx' || extension === '.pdf') {
-    const extractedText = await extractTextWithTextutil(filePath);
-    if (isReadableResumeText(extractedText)) {
-      return extractedText;
-    }
-  }
-
-  throw new Error('Could not extract readable text from this file. Please upload a searchable PDF/DOCX/TXT resume or paste the resume text directly.');
+  const normalized = normalizeWhitespace(text);
+  if (isReadableResumeText(normalized)) return normalized;
+  throw new Error('Could not extract readable text. Upload a searchable PDF/DOCX/TXT resume or paste the resume text.');
 };
 
 const parseStructuredOutput = (responseJson) => {
@@ -175,6 +134,7 @@ const analyzeResumeText = async (resumeText) => {
   }
 
   const response = await fetch('https://api.openai.com/v1/responses', {
+    signal: AbortSignal.timeout(45000),
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,

@@ -51,10 +51,6 @@ const requireAuth = async (req, res, next) => {
 };
 
 const optionalAuth = async (req, res, next) => {
-  if (!requireDatabaseConnection(res)) {
-    return;
-  }
-
   try {
     const authHeader = req.headers.authorization || '';
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
@@ -62,6 +58,8 @@ const optionalAuth = async (req, res, next) => {
     if (!token) {
       return next();
     }
+
+    if (!requireDatabaseConnection(res)) return;
 
     const payload = verifyToken(token);
     const user = await User.findById(payload.userId).select('_id name email isEmailVerified createdAt');

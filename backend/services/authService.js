@@ -5,7 +5,11 @@ const HASH_KEYLEN = 64;
 const HASH_DIGEST = 'sha512';
 const TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
-const getAuthSecret = () => process.env.AUTH_SECRET || process.env.OPENAI_API_KEY || 'gradhunt-dev-secret';
+const getAuthSecret = () => {
+  if (process.env.AUTH_SECRET) return process.env.AUTH_SECRET;
+  if (process.env.NODE_ENV === 'production') throw new Error('AUTH_SECRET is required');
+  return 'gradhunt-dev-secret';
+};
 
 const encodeBase64Url = (value) =>
   Buffer.from(value)

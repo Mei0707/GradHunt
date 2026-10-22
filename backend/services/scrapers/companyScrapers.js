@@ -3,6 +3,9 @@ const { scrapeLinkedInJobsPy } = require('./linkedinScraperPy');
 const { scrapeIndeedJobsBrowser } = require('./indeedScraperBrowser');
 const { scrapeZipRecruiterJobsBrowser } = require('./zipRecruiterScraperBrowser');
 
+const { metric } = require('../../lib/telemetry');
+const { createCircuitBreaker, ServiceUnavailableError } = require('../../lib/recovery');
+const circuits = [createCircuitBreaker(), createCircuitBreaker(), createCircuitBreaker()];
 const LINKEDIN_TARGET_JOBS = 50;
 const INDEED_TARGET_JOBS = 25;
 const ZIPRECRUITER_TARGET_JOBS = 20;
@@ -22,15 +25,18 @@ const buildSearchRole = (role, jobType = 'full-time') => {
   return normalizedRole.replace(/\b(intern|internship|co-?op)\b/gi, '').replace(/\s+/g, ' ').trim() || normalizedRole;
 };
 
-const withTimeout = (label, task, timeoutMs) =>
-  Promise.race([
-    task,
-    new Promise((_, reject) => {
-      setTimeout(() => {
-        reject(new Error(`${label} timed out after ${timeoutMs}ms`));
+const withTimeout = async (label, task, timeoutMs) => {
+  let timer;
+  const controller = new AbortController();
+  try {
+    return await Promise.race([task(controller.signal), new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        controller.abort();
+        reject(new Error(`${label} timed out`));
       }, timeoutMs);
-    }),
-  ]);
+    })]);
+  } finally { clearTimeout(timer); }
+};
 
 const buildLinkedInSearchRoles = (role, jobType = 'full-time') => {
   const variants = [role];
@@ -93,14 +99,15 @@ const dedupeJobs = (jobs) => {
   });
 };
 
-const scrapeLinkedInJobsExpanded = async (role, location, jobType) => {
+const scrapeLinkedInJobsExpanded = async (role, location, jobType, signal) => {
   const roleVariants = buildLinkedInSearchRoles(role, jobType);
   const jobsPerVariant = Math.ceil(LINKEDIN_TARGET_JOBS / roleVariants.length);
   const allJobs = [];
 
   for (const [index, variant] of roleVariants.entries()) {
+    signal?.throwIfAborted();
     console.log(`Running LinkedIn search variant: ${variant}`);
-    const jobs = await scrapeLinkedInJobsPy(variant, location, jobsPerVariant);
+    const jobs = await scrapeLinkedInJobsPy(variant, location, jobsPerVariant, signal);
 
     for (const job of jobs) {
       allJobs.push(job);
@@ -120,22 +127,25 @@ const scrapeAllCompanyJobs = async (role, location, jobType = 'full-time') => {
   
   try {
     const results = await Promise.allSettled([
-      withTimeout(
+      circuits[0](() => withTimeout(
         'LinkedIn scraper',
-        scrapeLinkedInJobsExpanded(searchRole, location, jobType),
+        signal => scrapeLinkedInJobsExpanded(searchRole, location, jobType, signal),
         LINKEDIN_TIMEOUT_MS
-      ),
-      withTimeout(
+      )),
+      circuits[1](() => withTimeout(
         'Indeed scraper',
-        scrapeIndeedJobsBrowser(searchRole, location, INDEED_TARGET_JOBS),
+        signal => scrapeIndeedJobsBrowser(searchRole, location, INDEED_TARGET_JOBS, signal),
         INDEED_TIMEOUT_MS
-      ),
-      withTimeout(
+      )),
+      circuits[2](() => withTimeout(
         'ZipRecruiter scraper',
-        scrapeZipRecruiterJobsBrowser(searchRole, location, ZIPRECRUITER_TARGET_JOBS),
+        signal => scrapeZipRecruiterJobsBrowser(searchRole, location, ZIPRECRUITER_TARGET_JOBS, signal),
         ZIPRECRUITER_TIMEOUT_MS
-      ),
+      )),
     ]);
+
+    results.forEach((result, i) => metric({ ScraperRuns: 1, ScraperFailures: result.status === 'rejected' ? 1 : 0 }, {}, { Dependency: ['linkedin', 'indeed', 'ziprecruiter'][i] }));
+    if (results.every(result => result.status === 'rejected')) throw new ServiceUnavailableError();
 
     const linkedinJobs = results[0].status === 'fulfilled' ? results[0].value : [];
     const indeedJobs = results[1].status === 'fulfilled' ? results[1].value : [];
@@ -164,7 +174,7 @@ const scrapeAllCompanyJobs = async (role, location, jobType = 'full-time') => {
     return allJobs;
   } catch (error) {
     console.error('Error in scrapeAllCompanyJobs:', error);
-    return [];
+    throw error;
   }
 };
 

@@ -59,6 +59,8 @@ def scrape_linkedin_jobs(title, location, num_jobs=25):
         # Check if request was successful
         if response.status_code != 200:
             print(f"Failed to fetch jobs list: Status code {response.status_code}")
+            if not all_jobs:
+                raise RuntimeError(f"LinkedIn responded with status {response.status_code}")
             break
         
         # Get the HTML

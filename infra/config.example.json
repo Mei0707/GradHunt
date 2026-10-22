@@ -1,0 +1,14 @@
+{
+  "mode": "existing",
+  "account": "111111111111",
+  "region": "us-west-2",
+  "environment": "production",
+  "clusterName": "YOUR_EXISTING_CLUSTER",
+  "serviceName": "YOUR_EXISTING_SERVICE",
+  "taskFamily": "YOUR_EXISTING_TASK_FAMILY",
+  "taskRoleArn": "arn:aws:iam::111111111111:role/YOUR_TASK_ROLE",
+  "executionRoleArn": "arn:aws:iam::111111111111:role/YOUR_EXECUTION_ROLE",
+  "githubOidcSubject": "repo:Mei0707/GradHunt:environment:production",
+  "loadBalancerFullName": "app/YOUR_ALB/0000000000000000",
+  "targetGroupFullName": "targetgroup/YOUR_TARGET_GROUP/0000000000000000"
+}

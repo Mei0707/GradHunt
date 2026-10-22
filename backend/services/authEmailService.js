@@ -85,6 +85,7 @@ const deliverAuthEmail = async ({ type, user, token }) => {
   const emailCopy = buildEmailCopy({ type, user, link });
 
   if (!hasResendConfig()) {
+    if (process.env.NODE_ENV === 'production') throw new Error('Email provider is not configured');
     console.warn(`[GradHunt email] Missing Resend config. Falling back to local preview link for ${user.email}: ${link}`);
     return {
       delivery: 'console',

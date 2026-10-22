@@ -1,0 +1,29 @@
+name: Release checks
+on:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.11'
+      - run: npm ci --prefix backend
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: 'true'
+      - run: npm test --prefix backend
+      - run: npm ci --prefix frontend
+      - run: npm run lint --prefix frontend && npm run build --prefix frontend
+      - run: npm ci --prefix infra && npm test --prefix infra
+      - run: npm run synth --prefix infra -- --quiet -c config=config.example.json
+      - run: npm run synth --prefix infra -- --quiet --no-lookups -c config=config.managed.example.json
+      - run: pip install -r agent-service/requirements.txt
+      - run: python -m pytest agent-service/tests -q
+      - run: python -m unittest discover -s scripts -p 'test_*.py'

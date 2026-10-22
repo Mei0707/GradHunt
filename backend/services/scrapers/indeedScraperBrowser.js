@@ -380,12 +380,18 @@ const enrichJobsWithDetailsFromResultsPage = async (page, detailPage, jobs, loca
   }
 };
 
-const scrapeIndeedJobsBrowser = async (title, location, numJobs = 50) => {
+const scrapeIndeedJobsBrowser = async (title, location, numJobs = 50, signal) => {
   let browser;
+  let deadline;
+  const abort = () => browser?.close().catch(() => {});
   const allJobs = [];
 
   try {
+    signal?.throwIfAborted();
     browser = await chromium.launch({ headless: true });
+    signal?.throwIfAborted();
+    signal?.addEventListener('abort', abort, { once: true });
+    deadline = setTimeout(() => browser.close().catch(() => {}), 55000);
     const context = await browser.newContext({
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
       locale: 'en-US',
@@ -460,6 +466,8 @@ const scrapeIndeedJobsBrowser = async (title, location, numJobs = 50) => {
 
     return allJobs;
   } finally {
+    clearTimeout(deadline);
+    signal?.removeEventListener('abort', abort);
     if (browser) {
       await browser.close();
     }

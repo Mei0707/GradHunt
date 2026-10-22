@@ -120,6 +120,8 @@ GradHunt includes standard account and security workflows such as:
 
 ## System Architecture
 
+For the current code paths, optional Python agent, and deployment boundaries, see [the architecture map](docs/architecture.md).
+
 GradHunt follows a **client-server architecture** with a modular backend.
 
 ### Frontend
@@ -713,9 +715,9 @@ Planned or natural future extensions include:
 
 ### Infrastructure / Engineering
 
-* production deployment hardening
-* automated testing
-* observability and monitoring
+Implemented reliability work is documented in [Reliability and SLOs](docs/reliability.md), [Architecture](docs/architecture.md), [Deployment runbook](docs/runbooks/deployment.md), [Incident response](docs/runbooks/incident-response.md), and [IAM review](docs/iam-review.md). It includes CloudWatch instrumentation/alarms, GitHub Actions releases, CDK, recovery controls, shared S3 uploads, and load/SLO tooling. Cloud activation requires identifying and configuring the intended AWS deployment.
+
+Remaining extensions include:
 * stronger auth flows (OAuth / session hardening)
 * distributed or persistent cache
 

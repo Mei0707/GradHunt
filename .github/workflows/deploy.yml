@@ -1,0 +1,52 @@
+name: Deploy gateway
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+jobs:
+  checks:
+    uses: ./.github/workflows/release-checks.yml
+  deploy:
+    needs: checks
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      ECS_CLUSTER: ${{ vars.ECS_CLUSTER }}
+      ECS_SERVICE: ${{ vars.ECS_SERVICE }}
+      TASK_FAMILY: ${{ vars.TASK_FAMILY }}
+      ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+      GATEWAY_CONTAINER: ${{ vars.GATEWAY_CONTAINER || 'gateway' }}
+      LOG_GROUP: ${{ vars.LOG_GROUP }}
+      RESUME_BUCKET: ${{ vars.RESUME_BUCKET }}
+      FRONTEND_URL: ${{ vars.FRONTEND_URL }}
+      TRUST_PROXY: ${{ vars.TRUST_PROXY || 'false' }}
+      DEPLOY_ENVIRONMENT: production
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: aws-actions/configure-aws-credentials@ff717079ee2060e4bcee96c4779b553acc87447c # v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Build and publish immutable image
+        run: |
+          set -euo pipefail
+          registry="${ECR_REPOSITORY%%/*}"
+          aws ecr get-login-password | docker login --username AWS --password-stdin "$registry"
+          tag="${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          docker build -t "$ECR_REPOSITORY:$tag" .
+          bash scripts/container_smoke.sh "$ECR_REPOSITORY:$tag"
+          docker push "$ECR_REPOSITORY:$tag"
+          repository="${ECR_REPOSITORY#*/}"
+          digest=$(aws ecr describe-images --repository-name "$repository" --image-ids imageTag="$tag" --query 'imageDetails[0].imageDigest' --output text)
+          echo "IMAGE_URI=$ECR_REPOSITORY@$digest" >> "$GITHUB_ENV"
+      - name: Deploy, verify revision, and recover on failure
+        run: python3 scripts/deploy_ecs.py

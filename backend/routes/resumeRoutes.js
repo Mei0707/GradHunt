@@ -5,6 +5,7 @@ const { requireAuth, requireVerifiedEmail } = require('../middleware/authMiddlew
 
 router.post('/upload', resumeController.uploadResume);
 router.post('/analyze', resumeController.analyzeResume);
+router.post('/optimize', requireAuth, requireVerifiedEmail, resumeController.optimizeResume);
 router.get('/history', requireAuth, requireVerifiedEmail, resumeController.listSavedResumes);
 router.post('/save', requireAuth, requireVerifiedEmail, resumeController.saveResumeToHistory);
 

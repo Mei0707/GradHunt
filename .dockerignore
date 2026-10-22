@@ -1,0 +1,15 @@
+.git
+**/node_modules
+**/.env
+**/.env.*
+**/.venv
+**/uploads
+**/linkedin_jobs.json
+**/indeed_jobs.json
+**/__pycache__
+**/linkedin_scraper
+**/dist
+infra
+reports
+*.pdf
+.DS_Store

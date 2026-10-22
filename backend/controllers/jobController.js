@@ -1,3 +1,4 @@
+const { log } = require('../lib/telemetry');
 /** 
 // backend/controllers/jobController.js
 const adzunaService = require('../services/adzunaService');
@@ -65,7 +66,7 @@ const searchJobs = async (req, res) => {
       totalPages: totalPages
     });
   } catch (error) {
-    console.error('Error in job search controller:', error);
+    log('error', 'controller_failure', { operation: 'Error in job search controller:', type: error.name });
 
     if (error.response) {
       console.error(`Status: ${error.response.status}`);
@@ -108,7 +109,7 @@ const getJobById = async (req, res) => {
 
     res.json(formattedJob);
   } catch (error) {
-    console.error('Error getting job details:', error);
+    log('error', 'controller_failure', { operation: 'Error getting job details:', type: error.name });
     res.status(500).json({ error: 'Error retrieving job details' });
   }
 };
@@ -128,7 +129,7 @@ const AppliedJob = require('../models/AppliedJob');
 const searchJobs = async (req, res) => {
   try {
     const requestSource = req.method === 'POST' ? req.body : req.query;
-    console.log('Request params:', requestSource);
+
     
     // Extract query parameters from request
     const {
@@ -193,20 +194,16 @@ const searchJobs = async (req, res) => {
         };
       }
     } catch (error) {
-      console.error('Error from job aggregation service:', error);
-      // Provide fallback data if the service fails
-      jobData = {
-        jobs: [],
-        count: 0,
-        totalPages: 1,
-        currentPage: parseInt(page)
-      };
+      log('error', 'controller_failure', { operation: 'Error from job aggregation service:', type: error.name });
+      return res.status(error.statusCode || 503).set('Retry-After', '30').json({
+        error: 'Job sources are temporarily unavailable. Please retry shortly.',
+      });
     }
     
     // Return response
     res.json(jobData);
   } catch (error) {
-    console.error('Unhandled error in job controller:', error);
+    log('error', 'controller_failure', { operation: 'Unhandled error in job controller:', type: error.name });
     
     // Send a proper error response
     res.status(500).json({
@@ -238,7 +235,7 @@ const listAppliedJobs = async (req, res) => {
       })),
     });
   } catch (error) {
-    console.error('Error loading applied jobs:', error);
+    log('error', 'controller_failure', { operation: 'Error loading applied jobs:', type: error.name });
     return res.status(500).json({
       error: 'Failed to load applied jobs.',
       message: 'An unexpected error occurred while loading application history.',
@@ -289,7 +286,7 @@ const saveAppliedJob = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Error saving applied job:', error);
+    log('error', 'controller_failure', { operation: 'Error saving applied job:', type: error.name });
     return res.status(500).json({
       error: 'Failed to save applied job.',
       message: 'An unexpected error occurred while saving application history.',
@@ -310,7 +307,7 @@ const fetchJobDetails = async (req, res) => {
     const details = await getJobDetails(job);
     return res.json(details);
   } catch (error) {
-    console.error('Error fetching job details:', error);
+    log('error', 'controller_failure', { operation: 'Error fetching job details:', type: error.name });
     return res.status(500).json({
       error: 'Failed to load job details.',
       message: error.message,
@@ -337,7 +334,7 @@ const generateJobCoverLetter = async (req, res) => {
     const result = await generateCoverLetter({ job, resume });
     return res.json(result);
   } catch (error) {
-    console.error('Error generating cover letter:', error);
+    log('error', 'controller_failure', { operation: 'Error generating cover letter:', type: error.name });
     return res.status(500).json({
       error: 'Failed to generate cover letter.',
       message: error.message,

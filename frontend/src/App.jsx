@@ -52,7 +52,7 @@ function App() {
     const rawText = await response.text();
     try {
       return rawText ? JSON.parse(rawText) : {};
-    } catch (error) {
+    } catch {
       throw new Error(`The backend returned an invalid response (${response.status}).`);
     }
   };
@@ -81,7 +81,7 @@ function App() {
       };
       console.log('Search payload:', payload);
       
-      const response = await fetch('http://localhost:3000/api/jobs/search', {
+      const response = await fetch('/api/jobs/search', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -108,7 +108,7 @@ function App() {
     } catch (error) {
       console.error('Search error:', error);
       if (error instanceof TypeError && error.message === 'Failed to fetch') {
-        setError('Could not reach the backend at http://localhost:3000. Please make sure the backend is running and then try again.');
+        setError('Could not reach the backend. Please make sure the backend is running and then try again.');
       } else {
       setError(error.message);
       }
@@ -147,7 +147,7 @@ function App() {
     }
 
     try {
-      const response = await fetch('http://localhost:3000/api/resume/history', {
+      const response = await fetch('/api/resume/history', {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -176,7 +176,7 @@ function App() {
     }
 
     try {
-      const response = await fetch('http://localhost:3000/api/jobs/applied', {
+      const response = await fetch('/api/jobs/applied', {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -210,7 +210,7 @@ function App() {
         return;
       }
 
-      fetch('http://localhost:3000/api/auth/me', {
+      fetch('/api/auth/me', {
         headers: {
           Authorization: `Bearer ${parsedAuth.token}`,
         },
@@ -255,7 +255,7 @@ function App() {
     };
 
     if (action === 'verify-email') {
-      fetch('http://localhost:3000/api/auth/verify-email', {
+      fetch('/api/auth/verify-email', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -320,7 +320,7 @@ function App() {
     setIsJobDetailsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:3000/api/jobs/details', {
+      const response = await fetch('/api/jobs/details', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -386,7 +386,7 @@ function App() {
     setIsCoverLetterLoading(true);
 
     try {
-      const response = await fetch('http://localhost:3000/api/jobs/cover-letter', {
+      const response = await fetch('/api/jobs/cover-letter', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -416,7 +416,7 @@ function App() {
 
   const saveAppliedJob = async (job) => {
     try {
-      const response = await fetch('http://localhost:3000/api/jobs/applied', {
+      const response = await fetch('/api/jobs/applied', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -558,7 +558,7 @@ function App() {
     setProfileStatus({ error: null, success: null });
 
     try {
-      const response = await fetch('http://localhost:3000/api/auth/profile', {
+      const response = await fetch('/api/auth/profile', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -597,7 +597,7 @@ function App() {
     setPasswordStatus({ error: null, success: null });
 
     try {
-      const response = await fetch('http://localhost:3000/api/auth/change-password', {
+      const response = await fetch('/api/auth/change-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -632,7 +632,7 @@ function App() {
     setVerificationStatus({ error: null, success: null, link: '' });
 
     try {
-      const response = await fetch('http://localhost:3000/api/auth/request-verification', {
+      const response = await fetch('/api/auth/request-verification', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${authState.token}`,

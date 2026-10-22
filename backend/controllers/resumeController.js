@@ -1,23 +1,14 @@
-const fs = require('fs');
+const { log } = require('../lib/telemetry');
+const { randomUUID } = require('node:crypto');
+const { writeResume } = require('../services/resumeStorage');
 const path = require('path');
-const { analyzeResumeInput } = require('../services/resumeAnalysisService');
+const { analyzeResumeInput, extractResumeText } = require('../services/resumeAnalysisService');
+const { optimizeResume: optimizeResumeViaAgent } = require('../services/agentServiceClient');
 const SavedResume = require('../models/SavedResume');
 
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_EXTENSIONS = new Set(['.pdf', '.doc', '.docx', '.txt']);
-const uploadsDir = path.join(__dirname, '../uploads/resumes');
-
-const ensureUploadsDir = () => {
-  if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
-  }
-};
-
-const buildSafeFilename = (originalName) => {
-  const extension = path.extname(originalName).toLowerCase();
-  const baseName = path.basename(originalName, extension).replace(/[^a-z0-9-_]+/gi, '-').replace(/-+/g, '-');
-  return `${Date.now()}-${baseName || 'resume'}${extension}`;
-};
+const buildSafeFilename = originalName => `${randomUUID()}${path.extname(originalName).toLowerCase()}`;
 
 const uploadResume = async (req, res) => {
   try {
@@ -53,11 +44,8 @@ const uploadResume = async (req, res) => {
       });
     }
 
-    ensureUploadsDir();
-
     const storedFileName = buildSafeFilename(fileName);
-    const filePath = path.join(uploadsDir, storedFileName);
-    fs.writeFileSync(filePath, buffer);
+    await writeResume(storedFileName, buffer);
 
     res.status(201).json({
       message: 'Resume uploaded successfully.',
@@ -70,7 +58,7 @@ const uploadResume = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Error uploading resume:', error);
+    log('error', 'controller_failure', { operation: 'Error uploading resume:', type: error.name });
     res.status(500).json({
       error: 'Failed to upload resume',
       message: 'An unexpected error occurred while uploading the resume.',
@@ -95,12 +83,60 @@ const analyzeResume = async (req, res) => {
       ...result,
     });
   } catch (error) {
-    console.error('Error analyzing resume:', error);
+    log('error', 'controller_failure', { operation: 'Error analyzing resume:', type: error.name });
     const statusCode = error.message.includes('OPENAI_API_KEY') ? 503 : 500;
 
     res.status(statusCode).json({
       error: 'Failed to analyze resume',
       message: error.message || 'An unexpected error occurred while analyzing the resume.',
+    });
+  }
+};
+
+// Delegates to the Python agent service (Resume Optimization Agent). Node
+// resolves the resume text (from an uploaded file or pasted text) and the
+// authenticated user id, then hands off the multi-agent reasoning.
+const optimizeResume = async (req, res) => {
+  try {
+    const { storedFileName, resumeText, jobDescription, jobTitle, company } = req.body;
+
+    if (!jobDescription || jobDescription.trim().length < 40) {
+      return res.status(400).json({
+        error: 'Missing job description',
+        message: 'A job description (at least 40 characters) is required to optimize the resume.',
+      });
+    }
+
+    let finalResumeText = (resumeText || '').trim();
+    if (!finalResumeText && storedFileName) {
+      finalResumeText = await extractResumeText(storedFileName);
+    }
+
+    if (!finalResumeText || finalResumeText.length < 80) {
+      return res.status(400).json({
+        error: 'Missing resume input',
+        message: 'Provide resumeText or a valid storedFileName with extractable resume content.',
+      });
+    }
+
+    const result = await optimizeResumeViaAgent({
+      userId: req.user._id.toString(),
+      resumeText: finalResumeText,
+      jobDescription,
+      jobTitle,
+      company,
+    });
+
+    res.json({
+      message: 'Resume optimized successfully.',
+      optimization: result,
+    });
+  } catch (error) {
+    log('error', 'controller_failure', { operation: 'Error optimizing resume:', type: error.name });
+    const statusCode = error.statusCode || 500;
+    res.status(statusCode).json({
+      error: 'Failed to optimize resume',
+      message: error.message || 'An unexpected error occurred while optimizing the resume.',
     });
   }
 };
@@ -124,7 +160,7 @@ const listSavedResumes = async (req, res) => {
       })),
     });
   } catch (error) {
-    console.error('Error fetching saved resumes:', error);
+    log('error', 'controller_failure', { operation: 'Error fetching saved resumes:', type: error.name });
     res.status(500).json({
       error: 'Failed to load saved resumes',
       message: 'An unexpected error occurred while loading resume history.',
@@ -195,7 +231,7 @@ const saveResumeToHistory = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Error saving resume history:', error);
+    log('error', 'controller_failure', { operation: 'Error saving resume history:', type: error.name });
     res.status(500).json({
       error: 'Failed to save resume history',
       message: 'An unexpected error occurred while saving the resume.',
@@ -206,6 +242,7 @@ const saveResumeToHistory = async (req, res) => {
 module.exports = {
   uploadResume,
   analyzeResume,
+  optimizeResume,
   listSavedResumes,
   saveResumeToHistory,
 };

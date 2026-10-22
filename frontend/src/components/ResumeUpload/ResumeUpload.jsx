@@ -18,7 +18,7 @@ const readJsonResponse = async (response) => {
 
   try {
     return text ? JSON.parse(text) : {};
-  } catch (error) {
+  } catch {
     const isHtml = text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html');
     throw new Error(
       isHtml
@@ -59,7 +59,7 @@ function ResumeUpload({ onUploadSuccess, authToken = null, savedResumes = [], on
       setSuccessMessage('');
 
       try {
-        const analysisResponse = await fetch('http://localhost:3000/api/resume/analyze', {
+        const analysisResponse = await fetch('/api/resume/analyze', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -86,7 +86,7 @@ function ResumeUpload({ onUploadSuccess, authToken = null, savedResumes = [], on
         };
 
         if (authToken) {
-          const saveResponse = await fetch('http://localhost:3000/api/resume/save', {
+          const saveResponse = await fetch('/api/resume/save', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -120,7 +120,7 @@ function ResumeUpload({ onUploadSuccess, authToken = null, savedResumes = [], on
 
     try {
       const fileData = await readFileAsBase64(selectedFile);
-      const response = await fetch('http://localhost:3000/api/resume/upload', {
+      const response = await fetch('/api/resume/upload', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -140,7 +140,7 @@ function ResumeUpload({ onUploadSuccess, authToken = null, savedResumes = [], on
       setSuccessMessage(`${data.resume.originalName} uploaded successfully. Running AI analysis...`);
       setIsAnalyzing(true);
 
-      const analysisResponse = await fetch('http://localhost:3000/api/resume/analyze', {
+      const analysisResponse = await fetch('/api/resume/analyze', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -163,7 +163,7 @@ function ResumeUpload({ onUploadSuccess, authToken = null, savedResumes = [], on
       };
 
       if (authToken) {
-        const saveResponse = await fetch('http://localhost:3000/api/resume/save', {
+        const saveResponse = await fetch('/api/resume/save', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

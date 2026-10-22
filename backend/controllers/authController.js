@@ -1,3 +1,4 @@
+const { log } = require('../lib/telemetry');
 const User = require('../models/User');
 const AuthToken = require('../models/AuthToken');
 const {
@@ -116,7 +117,7 @@ const register = async (req, res) => {
         token: verificationToken,
       });
     } catch (emailError) {
-      console.error('Verification email send failed during registration:', emailError);
+      log('error', 'controller_failure', { operation: 'Verification email send failed during registration:', type: emailError.name });
       verificationMessage = 'Account created successfully. We could not send the verification email right now, but you can request another one from Profile > Settings.';
     }
     const token = createToken({ userId: user._id.toString() });
@@ -128,7 +129,7 @@ const register = async (req, res) => {
       user: serializeUser(user),
     }, deliveryResult));
   } catch (error) {
-    console.error('Error registering user:', error);
+    log('error', 'controller_failure', { operation: 'Error registering user:', type: error.name });
     return res.status(500).json({
       error: 'Failed to register',
       message: 'An unexpected error occurred while creating the account.',
@@ -167,7 +168,7 @@ const login = async (req, res) => {
       user: serializeUser(user),
     });
   } catch (error) {
-    console.error('Error logging in:', error);
+    log('error', 'controller_failure', { operation: 'Error logging in:', type: error.name });
     return res.status(500).json({
       error: 'Failed to log in',
       message: 'An unexpected error occurred while logging in.',
@@ -241,7 +242,7 @@ const updateProfile = async (req, res) => {
           token: verificationToken,
         });
       } catch (emailError) {
-        console.error('Verification email send failed after profile update:', emailError);
+        log('error', 'controller_failure', { operation: 'Verification email send failed after profile update:', type: emailError.name });
         responseMessage = 'Profile updated, but we could not send a verification email right now. You can request another one from Profile > Settings.';
       }
     }
@@ -251,7 +252,7 @@ const updateProfile = async (req, res) => {
       user: serializeUser(req.user),
     }, deliveryResult));
   } catch (error) {
-    console.error('Error updating profile:', error);
+    log('error', 'controller_failure', { operation: 'Error updating profile:', type: error.name });
     return res.status(500).json({
       error: 'Failed to update profile',
       message: 'An unexpected error occurred while updating your profile.',
@@ -314,7 +315,7 @@ const changePassword = async (req, res) => {
       message: 'Password updated successfully.',
     });
   } catch (error) {
-    console.error('Error changing password:', error);
+    log('error', 'controller_failure', { operation: 'Error changing password:', type: error.name });
     return res.status(500).json({
       error: 'Failed to change password',
       message: 'An unexpected error occurred while changing your password.',
@@ -349,7 +350,7 @@ const requestEmailVerification = async (req, res) => {
       message: 'Verification email sent.',
     }, deliveryResult));
   } catch (error) {
-    console.error('Error sending verification email:', error);
+    log('error', 'controller_failure', { operation: 'Error sending verification email:', type: error.name });
     return res.status(500).json({
       error: 'Failed to send verification email',
       message: 'An unexpected error occurred while sending the verification email.',
@@ -402,7 +403,7 @@ const verifyEmail = async (req, res) => {
       user: serializeUser(user),
     });
   } catch (error) {
-    console.error('Error verifying email:', error);
+    log('error', 'controller_failure', { operation: 'Error verifying email:', type: error.name });
     return res.status(500).json({
       error: 'Failed to verify email',
       message: 'An unexpected error occurred while verifying your email.',
@@ -446,7 +447,7 @@ const forgotPassword = async (req, res) => {
       message: 'If an account exists for that email, a reset link has been sent.',
     }, deliveryResult));
   } catch (error) {
-    console.error('Error requesting password reset:', error);
+    log('error', 'controller_failure', { operation: 'Error requesting password reset:', type: error.name });
     return res.status(500).json({
       error: 'Failed to reset password',
       message: 'An unexpected error occurred while requesting a password reset.',
@@ -514,7 +515,7 @@ const resetPassword = async (req, res) => {
       message: 'Your password has been reset successfully. You can log in now.',
     });
   } catch (error) {
-    console.error('Error resetting password:', error);
+    log('error', 'controller_failure', { operation: 'Error resetting password:', type: error.name });
     return res.status(500).json({
       error: 'Failed to reset password',
       message: 'An unexpected error occurred while resetting your password.',

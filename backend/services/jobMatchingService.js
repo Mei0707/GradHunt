@@ -97,6 +97,8 @@ const getCachedEmbedding = (text) => {
 };
 
 const cacheEmbedding = (text, embedding) => {
+  // A task has finite memory; cache entries are an optimization and may be evicted.
+  if (embeddingCache.size >= 500) embeddingCache.delete(embeddingCache.keys().next().value);
   embeddingCache.set(text, {
     embedding,
     expiresAt: Date.now() + EMBEDDING_CACHE_TTL_MS,
@@ -123,6 +125,7 @@ const fetchEmbeddings = async (texts) => {
 
   if (uncachedTexts.length > 0) {
     const response = await fetch('https://api.openai.com/v1/embeddings', {
+      signal: AbortSignal.timeout(45000),
       method: 'POST',
       headers: {
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
