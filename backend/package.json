@@ -19,7 +19,7 @@
     "express": "^5.1.0",
     "mammoth": "1.13.0",
     "mongoose": "^8.14.1",
-    "pdf-parse": "^1.1.1",
+    "pdf-parse": "^2.4.5",
     "playwright": "^1.52.0",
     "resend": "^6.10.0"
   }
