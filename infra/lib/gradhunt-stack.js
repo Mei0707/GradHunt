@@ -4,6 +4,7 @@ const { aws_cloudwatch: cw, aws_cloudwatch_actions: actions, aws_ec2: ec2,
   aws_sns: sns, aws_sns_subscriptions: subscriptions, aws_events: events,
   aws_events_targets: targets, aws_secretsmanager: secrets,
   aws_s3: s3,
+  aws_cloudfront: cloudfront, aws_cloudfront_origins: origins,
   aws_certificatemanager: acm, aws_elasticloadbalancingv2: elb,
   aws_route53: route53, aws_route53_targets: dns } = cdk;
 const path = require('node:path');
@@ -19,8 +20,12 @@ function validateConfig(config) {
   }
   const required = config.mode === 'existing'
     ? ['clusterName', 'serviceName', 'taskFamily', 'taskRoleArn', 'executionRoleArn']
-    : ['runtimeSecretArn', 'certificateArn', 'domainName'];
+    : ['runtimeSecretArn', ...(config.publicEndpoint === 'cloudfront' ? ['cloudFrontPrefixListId'] : ['certificateArn', 'domainName'])];
   for (const key of required) if (!config[key]) throw new Error(`Missing ${key}`);
+  if (config.publicEndpoint && !['alb', 'cloudfront'].includes(config.publicEndpoint)) throw new Error('publicEndpoint must be alb or cloudfront');
+  if (config.publicEndpoint === 'cloudfront' && (config.domainName || config.certificateArn || config.hostedZoneId)) {
+    throw new Error('CloudFront mode uses an AWS-provided domain; omit custom domain and certificate settings');
+  }
   if (config.mode === 'managed' && !config.vpc && (!Array.isArray(config.availabilityZones) || config.availabilityZones.length < 2)) {
     throw new Error('Managed mode requires at least two explicit availabilityZones or imported VPC attributes');
   }
@@ -58,6 +63,7 @@ class GradHuntStack extends cdk.Stack {
     let taskRole;
     let service, targetGroup, loadBalancer;
     if (config.mode === 'managed') {
+      const useCloudFront = config.publicEndpoint === 'cloudfront';
       const vpc = config.vpc ? ec2.Vpc.fromVpcAttributes(this, 'Vpc', config.vpc) : new ec2.Vpc(this, 'Vpc', {
         availabilityZones: config.availabilityZones, natGateways: 1,
         subnetConfiguration: [
@@ -69,6 +75,7 @@ class GradHuntStack extends cdk.Stack {
       const runtime = secrets.Secret.fromSecretCompleteArn(this, 'Runtime', config.runtimeSecretArn);
       const definition = new ecs.FargateTaskDefinition(this, 'Task', {
         family: `gradhunt-${stage}`, cpu: 1024, memoryLimitMiB: 2048,
+        runtimePlatform: { cpuArchitecture: ecs.CpuArchitecture.X86_64, operatingSystemFamily: ecs.OperatingSystemFamily.LINUX },
       });
       const gatewaySecrets = {};
       for (const key of ['MONGODB_URI', 'AUTH_SECRET', 'OPENAI_API_KEY', 'RESEND_API_KEY', 'EMAIL_FROM']) {
@@ -76,10 +83,10 @@ class GradHuntStack extends cdk.Stack {
       }
       if (config.agentServiceUrl) gatewaySecrets.AGENT_SERVICE_TOKEN = ecs.Secret.fromSecretsManager(runtime, 'AGENT_SERVICE_TOKEN');
       const gateway = definition.addContainer('gateway', {
-        image: ecs.ContainerImage.fromAsset(path.join(__dirname, '../..')),
+        image: ecs.ContainerImage.fromAsset(path.join(__dirname, '../..'), { platform: cdk.aws_ecr_assets.Platform.LINUX_AMD64 }),
         logging: ecs.LogDrivers.awsLogs({ logGroup, streamPrefix: 'gateway' }),
         environment: { NODE_ENV: 'production', ENVIRONMENT: stage, CLOUDWATCH_EMF: 'true',
-          TRUST_PROXY: 'true', FRONTEND_URL: `https://${config.domainName}`, RESUME_BUCKET: uploads.bucketName,
+          TRUST_PROXY: 'true', TRUST_PROXY_HOPS: useCloudFront ? '2' : '1', RESUME_BUCKET: uploads.bucketName,
           ...(config.agentServiceUrl ? { AGENT_SERVICE_URL: config.agentServiceUrl } : {}) },
         secrets: gatewaySecrets, stopTimeout: cdk.Duration.seconds(30),
         healthCheck: { command: ['CMD-SHELL', `node -e "fetch('http://127.0.0.1:3000/api/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"`],
@@ -94,12 +101,19 @@ class GradHuntStack extends cdk.Stack {
         healthCheckGracePeriod: cdk.Duration.seconds(60),
       });
       loadBalancer = new elb.ApplicationLoadBalancer(this, 'LoadBalancer', {
-        vpc, internetFacing: true, dropInvalidHeaderFields: true, idleTimeout: cdk.Duration.seconds(150),
+        vpc, internetFacing: !useCloudFront, dropInvalidHeaderFields: true, idleTimeout: cdk.Duration.seconds(150),
+        ...(useCloudFront ? { vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS } } : {}),
       });
-      loadBalancer.addRedirect({ sourcePort: 80, targetPort: 443, targetProtocol: elb.ApplicationProtocol.HTTPS });
-      const listener = loadBalancer.addListener('Https', { port: 443,
-        certificates: [acm.Certificate.fromCertificateArn(this, 'Certificate', config.certificateArn)],
-        sslPolicy: elb.SslPolicy.RECOMMENDED_TLS });
+      let listener;
+      if (useCloudFront) {
+        listener = loadBalancer.addListener('PrivateHttp', { port: 80, open: false });
+        loadBalancer.connections.allowFrom(ec2.Peer.prefixList(config.cloudFrontPrefixListId), ec2.Port.tcp(80), 'CloudFront origin-facing traffic only');
+      } else {
+        loadBalancer.addRedirect({ sourcePort: 80, targetPort: 443, targetProtocol: elb.ApplicationProtocol.HTTPS });
+        listener = loadBalancer.addListener('Https', { port: 443,
+          certificates: [acm.Certificate.fromCertificateArn(this, 'Certificate', config.certificateArn)],
+          sslPolicy: elb.SslPolicy.RECOMMENDED_TLS });
+      }
       targetGroup = listener.addTargets('Gateway', {
         port: 3000, protocol: elb.ApplicationProtocol.HTTP, targets: [service],
         healthCheck: { path: '/api/health/ready', healthyHttpCodes: '200',
@@ -109,7 +123,29 @@ class GradHuntStack extends cdk.Stack {
       const scaling = service.autoScaleTaskCount({ minCapacity: 2, maxCapacity: 4 });
       scaling.scaleOnCpuUtilization('CpuScaling', { targetUtilizationPercent: 60,
         scaleInCooldown: cdk.Duration.minutes(5), scaleOutCooldown: cdk.Duration.minutes(1) });
-      if (config.hostedZoneId && config.hostedZoneName) {
+      let applicationUrl = `https://${config.domainName}`;
+      if (useCloudFront) {
+        const endpoint = new cloudfront.VpcOrigin(this, 'VpcOrigin', {
+          endpoint: cloudfront.VpcOriginEndpoint.applicationLoadBalancer(loadBalancer),
+          httpPort: 80, httpsPort: 443, protocolPolicy: cloudfront.OriginProtocolPolicy.HTTP_ONLY,
+        });
+        endpoint.node.addDependency(listener);
+        const distribution = new cloudfront.Distribution(this, 'Distribution', {
+          defaultBehavior: {
+            origin: origins.VpcOrigin.withVpcOrigin(endpoint, { readTimeout: cdk.Duration.seconds(120) }),
+            viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+            allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+            cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+            originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER,
+          },
+          errorResponses: [500, 502, 503, 504].map(httpStatus => ({ httpStatus, ttl: cdk.Duration.seconds(0) })),
+          comment: `GradHunt ${stage}: AWS-managed HTTPS endpoint`,
+        });
+        applicationUrl = `https://${distribution.distributionDomainName}`;
+        new cdk.CfnOutput(this, 'DistributionId', { value: distribution.distributionId });
+      }
+      gateway.addEnvironment('FRONTEND_URL', applicationUrl);
+      if (!useCloudFront && config.hostedZoneId && config.hostedZoneName) {
         const zone = route53.HostedZone.fromHostedZoneAttributes(this, 'Zone', {
           hostedZoneId: config.hostedZoneId, zoneName: config.hostedZoneName,
         });
@@ -120,7 +156,8 @@ class GradHuntStack extends cdk.Stack {
       taskFamily = definition.family; taskRoleArn = definition.taskRole.roleArn;
       taskRole = definition.taskRole;
       executionRoleArn = definition.executionRole.roleArn;
-      new cdk.CfnOutput(this, 'ApplicationUrl', { value: `https://${config.domainName}` });
+      new cdk.CfnOutput(this, 'ApplicationUrl', { value: applicationUrl });
+      new cdk.CfnOutput(this, 'TrustProxyHops', { value: useCloudFront ? '2' : '1' });
       new cdk.CfnOutput(this, 'LoadBalancerDns', { value: loadBalancer.loadBalancerDnsName });
     } else {
       ({ clusterName, serviceName, taskFamily, taskRoleArn, executionRoleArn } = config);

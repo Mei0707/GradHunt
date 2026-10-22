@@ -1,6 +1,6 @@
 # Deployment and release runbook
 
-Use this runbook to connect an existing ECS rolling service or provision the managed gateway stack. Never deploy example account IDs or placeholder service names.
+The selected production target is a **new managed ECS Fargate service in us-west-2**, using a CloudFront HTTPS address and private ALB. See [the deployment decision](../decisions/001-managed-ecs.md) for verified metadata and remaining prerequisites. Existing-service integration remains available when an actual service is identified. Never deploy example account IDs or placeholder service names.
 
 ## Identify and configure the target
 
@@ -8,7 +8,9 @@ Read the AWS inventory note in `docs/architecture.md`. In the intended AWS profi
 
 Copy `infra/config.example.json` to `infra/config.json` and replace its values. `mode: existing` creates supporting resources and attaches scoped logging, ECR pull and upload permissions to the existing roles. Supply ALB/target-group full names for target and load-balancer alarms. If an OIDC provider already exists in the account, set `oidcProviderArn` to import it. If an upload bucket already exists, set `resumeBucketName`; verify its encryption, public-access block, TLS policy and retention separately.
 
-For a managed service, use `infra/config.managed.example.json`. Supply a regional ACM certificate, domain and at least two explicit `availabilityZones`; optional `hostedZoneId` and `hostedZoneName` enable the DNS alias. Otherwise create the DNS alias manually using the output ALB DNS name. Optional `vpc` attributes import an existing VPC and its public/private subnet IDs rather than creating a network. Imported subnets must already provide outbound access to MongoDB, S3 and scraper/AI providers.
+For the selected domain-free managed service, the ignored `infra/config.production.json` contains the verified account/region/zones and `publicEndpoint: cloudfront`. `infra/config.managed-cloudfront.example.json` is its offline synthesis fixture. CloudFront supplies the public HTTPS hostname, while the ALB remains private and accepts only the regional AWS-managed origin-facing prefix list. Application caching is disabled, all API methods/headers/cookies are forwarded, and gateway proxy trust covers CloudFront plus ALB. No custom domain or ACM certificate is required for this mode. CloudFront origin reads are capped at 120 seconds in this configuration, so longer scraper/agent requests can time out at the edge.
+
+For a managed service with an owned custom domain, use `infra/config.managed.example.json`. Supply a regional ACM certificate, domain and at least two explicit `availabilityZones`; optional `hostedZoneId` and `hostedZoneName` enable the DNS alias. Otherwise create the DNS alias manually using the output ALB DNS name. Optional `vpc` attributes import an existing VPC and its public/private subnet IDs rather than creating a network. Imported subnets must already provide outbound access to MongoDB, S3 and scraper/AI providers.
 
 The exact GitHub `sub` claim must match `githubOidcSubject` and the protected environment. Repositories using immutable OIDC subjects include owner/repository IDs; use that actual subject instead of widening the condition with wildcards. See [GitHub's AWS OIDC guidance](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-aws).
 
@@ -27,16 +29,19 @@ From `infra/`:
 ```sh
 npm ci
 npm test
-npm run synth -- --quiet -c config=config.json
-npm run diff -- -c config=config.json
-npm run deploy -- -c config=config.json --outputs-file ../reports/stack-outputs.json
+npm run preflight -- --config config.production.json
+npm run synth -- --quiet --no-lookups -c config=config.production.json
+npm run diff -- -c config=config.production.json
+npm run deploy -- -c config=config.production.json --outputs-file ../reports/stack-outputs.json
 ```
+
+The preflight rejects placeholders, missing runtime-secret settings and mismatched AWS accounts. It verifies resource metadata without reading secret values. `npm run deploy` runs this check automatically before CDK provisioning; offline synthesis continues to support the example fixtures. The current production draft intentionally fails preflight until a real runtime secret with a working MongoDB connection is supplied. The locally configured MongoDB hostname returned `ENOTFOUND` during the read-only check and is not a verified production database.
 
 CDK bootstrap must already exist in the intended account/region. Review IAM and network changes in the diff before the operator applies the stack. The application release role is deliberately unable to bootstrap or deploy CloudFormation.
 
 Configure a recipient with `alertEmail`, deploy the subscription and confirm it through SNS. Without a confirmed subscription, the topic receives alarm events but no email is delivered. After telemetry begins, inspect the dashboard and alarm state before relying on alert coverage. New database/readiness alarms intentionally breach when probe metrics are missing.
 
-Existing ALBs must route health checks to `/api/health/ready` (HTTP 200 only), permit long scraping responses with an idle timeout above 135 seconds, and drain targets for at least 30 seconds. Restrict task port 3000 to the ALB security group. Set `TRUST_PROXY=true` only after confirming that topology; the managed stack establishes it.
+Existing ALBs must route health checks to `/api/health/ready` (HTTP 200 only), permit long scraping responses with an idle timeout above 135 seconds, and drain targets for at least 30 seconds. Restrict task port 3000 to the ALB security group. Set `TRUST_PROXY=true` only after confirming that topology; the managed stack establishes it. Use `TRUST_PROXY_HOPS=2` for the selected CloudFront/private-ALB path and 1 for a direct ALB. Releases preserve these settings unless explicitly overridden.
 
 ## Connect GitHub Actions
 
@@ -51,7 +56,8 @@ Create a protected GitHub environment named `production`, restrict deployment br
 | `LOG_GROUP`, `RESUME_BUCKET` | `LogGroupName`, `ResumeBucketName` outputs |
 | `FRONTEND_URL` | Public HTTPS origin |
 | `GATEWAY_CONTAINER` | Existing container name; defaults to `gateway` |
-| `TRUST_PROXY` | `true` only for the verified ALB topology |
+| `TRUST_PROXY` | Optional override; managed tasks preserve their verified proxy setting |
+| `TRUST_PROXY_HOPS` | Optional override; `TrustProxyHops` output is 2 for CloudFront + ALB, 1 for direct ALB |
 
 No long-lived AWS access keys belong in GitHub secrets. Workflows pin external actions to commit IDs. Dependabot proposes dependency/action updates.
 

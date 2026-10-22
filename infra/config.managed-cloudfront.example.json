@@ -1,0 +1,14 @@
+{
+  "mode": "managed",
+  "account": "111111111111",
+  "region": "us-west-2",
+  "environment": "production",
+  "availabilityZones": [
+    "us-west-2a",
+    "us-west-2b"
+  ],
+  "runtimeSecretArn": "arn:aws:secretsmanager:us-west-2:111111111111:secret:gradhunt-production-ABC123",
+  "githubOidcSubject": "repo:Mei0707/GradHunt:environment:production",
+  "publicEndpoint": "cloudfront",
+  "cloudFrontPrefixListId": "pl-82a045eb"
+}

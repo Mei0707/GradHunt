@@ -10,3 +10,5 @@ cdk.out/
 .DS_Store
 reports/
 *.log
+/infra/config.json
+/infra/config.production.json

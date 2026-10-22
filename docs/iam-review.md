@@ -16,4 +16,6 @@ The new S3 bucket blocks public access, requires TLS, encrypts objects, versions
 
 Keep `TRUST_PROXY` disabled until task ingress is restricted to the ALB. Rate limiting now uses Express's trusted IP calculation instead of directly trusting arbitrary forwarded headers. Limits remain per task; use a shared limiter or edge controls if a global enforcement requirement is introduced.
 
+The selected CloudFront endpoint uses a private ALB whose ingress is limited to the verified regional AWS-managed origin-facing prefix list. That path trusts exactly two proxy hops (`TRUST_PROXY_HOPS=2`); the direct-ALB option uses one. Application releases preserve the configured trust topology. The deployment preflight checks resource metadata and rejects placeholder configurations before CDK provisioning; it does not grant additional runtime IAM permissions.
+
 Before enabling release access, inspect the concrete CDK diff and the existing task/execution roles. Confirm secret resource ARNs, any customer-managed KMS grants, account/region, task family, ECS service, OIDC subject and GitHub environment protections. Validate these policies in the actual account using IAM Access Analyzer/CloudTrail; synthesis tests establish generated policy shape, not effective live authorization. Review unused permissions after real workloads are observed.

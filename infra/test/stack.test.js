@@ -67,3 +67,26 @@ test('reject unsafe or incomplete config', () => {
   assert.throws(() => validateConfig({ ...existing, taskRoleArn: '' }), /taskRoleArn/);
   assert.throws(() => validateConfig({ ...managed, certificateArn: '' }), /certificateArn/);
 });
+
+test('AWS-provided HTTPS endpoint keeps ALB private and never caches authenticated API responses', () => {
+  const config = require('../config.managed-cloudfront.example.json');
+  const template = synth(config);
+  template.hasResourceProperties('AWS::ElasticLoadBalancingV2::LoadBalancer', { Scheme: 'internal' });
+  template.resourceCountIs('AWS::CloudFront::VpcOrigin', 1);
+  template.hasResourceProperties('AWS::CloudFront::Distribution', { DistributionConfig: Match.objectLike({
+    DefaultCacheBehavior: Match.objectLike({
+      ViewerProtocolPolicy: 'redirect-to-https',
+      AllowedMethods: ['GET', 'HEAD', 'OPTIONS', 'PUT', 'PATCH', 'POST', 'DELETE'],
+      CachePolicyId: cdk.aws_cloudfront.CachePolicy.CACHING_DISABLED.cachePolicyId,
+      OriginRequestPolicyId: cdk.aws_cloudfront.OriginRequestPolicy.ALL_VIEWER.originRequestPolicyId,
+    }),
+    ViewerCertificate: Match.absent(), Aliases: Match.absent(),
+  }) });
+  template.hasResourceProperties('AWS::ECS::TaskDefinition', { ContainerDefinitions: Match.arrayWith([Match.objectLike({
+    Environment: Match.arrayWith([{ Name: 'TRUST_PROXY_HOPS', Value: '2' }]),
+  })]), RuntimePlatform: { CpuArchitecture: 'X86_64', OperatingSystemFamily: 'LINUX' } });
+  const ingress = Object.values(template.findResources('AWS::EC2::SecurityGroup')).flatMap(resource => resource.Properties.SecurityGroupIngress || []);
+  ingress.push(...Object.values(template.findResources('AWS::EC2::SecurityGroupIngress')).map(resource => resource.Properties));
+  assert.ok(ingress.some(rule => rule.SourcePrefixListId === config.cloudFrontPrefixListId && rule.FromPort === 80 && rule.ToPort === 80));
+  assert.ok(!JSON.stringify(ingress).includes('0.0.0.0/0'));
+});

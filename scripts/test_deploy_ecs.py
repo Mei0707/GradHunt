@@ -29,6 +29,7 @@ class DeployTests(unittest.TestCase):
             if args[:2] == ('ecs', 'describe-task-definition'):
                 return {'taskDefinition': {'family': 'gradhunt', 'taskDefinitionArn': OLD, 'revision': 1,
                     'containerDefinitions': [{'name': 'gateway', 'image': 'old',
+                        'environment': [{'name': 'TRUST_PROXY_HOPS', 'value': '2'}, {'name': 'TRUST_PROXY', 'value': 'true'}],
                         'secrets': [{'name': 'MONGODB_URI'}, {'name': 'AUTH_SECRET'}]},
                         {'name': 'sidecar', 'image': 'unchanged'}]}}
             if args[:2] == ('ecs', 'register-task-definition'):
@@ -45,6 +46,8 @@ class DeployTests(unittest.TestCase):
         self.assertNotIn('revision', self.payload)
         self.assertEqual(self.payload['containerDefinitions'][0]['image'], ENV['IMAGE_URI'])
         self.assertEqual(self.payload['containerDefinitions'][1]['image'], 'unchanged')
+        self.assertIn({'name': 'TRUST_PROXY_HOPS', 'value': '2'}, self.payload['containerDefinitions'][0]['environment'])
+        self.assertIn({'name': 'TRUST_PROXY', 'value': 'true'}, self.payload['containerDefinitions'][0]['environment'])
         self.assertEqual(self.describes, 2)
 
     @patch.dict(os.environ, ENV, clear=True)

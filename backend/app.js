@@ -7,7 +7,11 @@ const createApp = ({ database = mongoose.connection, isDraining = () => false,
   staticDir = path.join(__dirname, '../frontend/dist') } = {}) => {
   const app = express();
   app.disable('x-powered-by');
-  if (process.env.TRUST_PROXY === 'true') app.set('trust proxy', 1);
+  if (process.env.TRUST_PROXY === 'true') {
+    const hops = Number(process.env.TRUST_PROXY_HOPS || 1);
+    if (![1, 2].includes(hops)) throw new Error('TRUST_PROXY_HOPS must be 1 or 2');
+    app.set('trust proxy', hops);
+  }
   app.use(requestTelemetry);
   app.use(cors({ origin: process.env.FRONTEND_URL || false }));
   app.use(express.json({ limit: '10mb' }));

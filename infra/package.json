@@ -5,7 +5,8 @@
     "test": "node --test test/*.test.js",
     "synth": "cdk synth",
     "diff": "cdk diff",
-    "deploy": "cdk deploy"
+    "preflight": "node bin/preflight.js",
+    "deploy": "node bin/deploy.js"
   },
   "dependencies": {
     "aws-cdk-lib": "2.274.0",

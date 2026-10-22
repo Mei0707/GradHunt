@@ -120,7 +120,7 @@ GradHunt includes standard account and security workflows such as:
 
 ## System Architecture
 
-For the current code paths, optional Python agent, and deployment boundaries, see [the architecture map](docs/architecture.md).
+For the current code paths, optional Python agent, and deployment boundaries, see [the architecture map](docs/architecture.md). The [selected deployment target](docs/decisions/001-managed-ecs.md) is a new managed ECS Fargate service with an AWS-provided HTTPS address; it has not been provisioned.
 
 GradHunt follows a **client-server architecture** with a modular backend.
 

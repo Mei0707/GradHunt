@@ -24,6 +24,7 @@ jobs:
       - run: npm ci --prefix infra && npm test --prefix infra
       - run: npm run synth --prefix infra -- --quiet -c config=config.example.json
       - run: npm run synth --prefix infra -- --quiet --no-lookups -c config=config.managed.example.json
+      - run: npm run synth --prefix infra -- --quiet --no-lookups -c config=config.managed-cloudfront.example.json
       - run: pip install -r agent-service/requirements.txt
       - run: python -m pytest agent-service/tests -q
       - run: python -m unittest discover -s scripts -p 'test_*.py'

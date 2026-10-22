@@ -121,3 +121,19 @@ test('rate limiting uses trusted req.ip rather than a spoofed forwarded header',
   middleware({ ip: '127.0.0.1', headers: { 'x-forwarded-for': 'b' } }, response, () => assert.fail('bypassed limit'));
   assert.equal(status, 429);
 });
+
+test('CloudFront and ALB use two trusted hops while client-supplied forwarded IPs stay untrusted', t => {
+  const previous = { enabled: process.env.TRUST_PROXY, hops: process.env.TRUST_PROXY_HOPS };
+  process.env.TRUST_PROXY = 'true';
+  process.env.TRUST_PROXY_HOPS = '2';
+  t.after(() => {
+    for (const [key, value] of [['TRUST_PROXY', previous.enabled], ['TRUST_PROXY_HOPS', previous.hops]]) {
+      if (value === undefined) delete process.env[key]; else process.env[key] = value;
+    }
+  });
+  const app = createApp();
+  const proxyAddress = require('proxy-addr');
+  const address = proxyAddress({ socket: { remoteAddress: '10.0.0.1' },
+    headers: { 'x-forwarded-for': '192.0.2.99, 203.0.113.5, 198.51.100.10' } }, app.get('trust proxy fn'));
+  assert.equal(address, '203.0.113.5');
+});

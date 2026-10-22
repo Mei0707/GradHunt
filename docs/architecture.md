@@ -4,7 +4,8 @@ GradHunt helps early-career applicants find jobs, turn resumes into structured p
 
 ```mermaid
 flowchart LR
-  Browser[React / Vite] -->|same-origin /api| ALB[HTTPS application load balancer]
+  Browser[React / Vite] -->|HTTPS, same-origin /api| Edge[CloudFront / AWS-provided hostname]
+  Edge --> ALB[Private application load balancer]
   ALB --> Gateway[Express gateway / ECS]
   Gateway --> Mongo[(MongoDB: users, resumes, applications, auth tokens)]
   Gateway --> Uploads[(Private S3: raw resume uploads)]
@@ -40,8 +41,10 @@ Search cache entries expire after ten minutes (empty results: 30 seconds), coale
 
 ## Deployment boundaries and remaining tradeoffs
 
+The selected target is a new managed ECS service in the verified default account and `us-west-2` region, using CloudFront for an AWS-provided HTTPS hostname and a private ALB. [The decision record](decisions/001-managed-ecs.md) separates verified metadata from missing runtime prerequisites. No resources have been provisioned.
+
 - `existing` CDK mode adds observability, an image repository, private upload storage and narrowly scoped role grants around an identified existing ECS service. It does not adopt or replace that service or network in CloudFormation. ALB health-path changes remain an operator integration step.
-- `managed` mode creates the gateway's VPC or imports supplied VPC attributes, ECS cluster/service, HTTPS ALB, autoscaling and monitoring. It requires an existing regional certificate, domain and runtime secret. MongoDB and the optional Python/PostgreSQL service remain external dependencies.
+- `managed` mode creates the gateway's VPC or imports supplied VPC attributes, ECS cluster/service, HTTPS ALB, autoscaling and monitoring. It requires a runtime secret with a working database URI. The selected `publicEndpoint: cloudfront` option supplies an AWS-provided HTTPS address; the alternate direct-ALB option requires an existing regional certificate and owned domain. MongoDB and the optional Python/PostgreSQL service remain external dependencies.
 - The optional agent service has its own container and local compose setup; its cloud hosting is not provisioned by the gateway stack. If enabled, use private networking or an HTTPS endpoint and matching internal tokens.
 - Raw uploads in a newly managed S3 bucket expire after 30 days; saved text and analysis remain in MongoDB. Imported upload buckets retain their existing lifecycle policy. Old local files need migration before scaling out.
 - Managed tasks span two availability zones. The economical single NAT gateway is an availability tradeoff; use one per zone for a stronger production requirement. Scraping still depends on external page layouts, blocking and quotas.

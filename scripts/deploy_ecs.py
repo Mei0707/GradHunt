@@ -45,7 +45,8 @@ def deploy():
     env = {item['name']: item['value'] for item in gateway.get('environment', [])}
     env.update(NODE_ENV='production', ENVIRONMENT=os.environ.get('DEPLOY_ENVIRONMENT', 'production'),
                CLOUDWATCH_EMF='true', FRONTEND_URL=os.environ['FRONTEND_URL'],
-               TRUST_PROXY=os.environ.get('TRUST_PROXY', 'false'), RESUME_BUCKET=os.environ['RESUME_BUCKET'])
+               TRUST_PROXY=os.environ.get('TRUST_PROXY') or env.get('TRUST_PROXY', 'false'), RESUME_BUCKET=os.environ['RESUME_BUCKET'])
+    env['TRUST_PROXY_HOPS'] = os.environ.get('TRUST_PROXY_HOPS') or env.get('TRUST_PROXY_HOPS', '1')
     secret_names = {s['name'] for s in gateway.get('secrets', [])}
     if not {'MONGODB_URI', 'AUTH_SECRET'}.issubset(secret_names):
         raise RuntimeError('MONGODB_URI and AUTH_SECRET must be injected using ECS secrets before deploying')

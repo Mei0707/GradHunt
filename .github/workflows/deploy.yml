@@ -28,7 +28,8 @@ jobs:
       LOG_GROUP: ${{ vars.LOG_GROUP }}
       RESUME_BUCKET: ${{ vars.RESUME_BUCKET }}
       FRONTEND_URL: ${{ vars.FRONTEND_URL }}
-      TRUST_PROXY: ${{ vars.TRUST_PROXY || 'false' }}
+      TRUST_PROXY: ${{ vars.TRUST_PROXY }}
+      TRUST_PROXY_HOPS: ${{ vars.TRUST_PROXY_HOPS }}
       DEPLOY_ENVIRONMENT: production
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
