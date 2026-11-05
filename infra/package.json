@@ -9,7 +9,7 @@
     "deploy": "node bin/deploy.js"
   },
   "dependencies": {
-    "aws-cdk-lib": "2.274.0",
+    "aws-cdk-lib": "2.275.0",
     "constructs": "10.6.0"
   },
   "devDependencies": {
